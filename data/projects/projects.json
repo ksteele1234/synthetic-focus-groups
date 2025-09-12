@@ -1,0 +1,59 @@
+[
+  {
+    "id": "56da6484-d365-4832-9b0a-aa55a2d6401d",
+    "name": "Sample Consumer Research",
+    "description": "Sample project to demonstrate synthetic focus group capabilities",
+    "research_topic": "Consumer Technology Preferences",
+    "research_questions": [
+      "What factors influence your technology purchasing decisions?",
+      "How do you research new technology products?",
+      "What role does price play in your decision-making?",
+      "How important are reviews and recommendations?",
+      "What frustrations do you have with current technology products?"
+    ],
+    "target_insights": [
+      "Identify key decision-making factors",
+      "Understand research behaviors",
+      "Explore price sensitivity",
+      "Assess influence of social proof",
+      "Discover pain points and opportunities"
+    ],
+    "methodology_notes": "",
+    "facilitator_id": "e51c34c7-5c38-4dac-b81f-8e7c5136f3f4",
+    "persona_ids": [
+      "215924cf-6ec4-4fa8-a8cc-dd7493e5f671",
+      "2718b483-4864-441e-8f7c-183939e02487",
+      "d4a73a4f-e6c4-4520-bc85-6a5ed0338fe7",
+      "d3f24de6-8bdd-4d83-bb46-675df704c5e4",
+      "e4df1dcb-7dfc-4db9-90c1-4892cebb84c7",
+      "bfc435bf-7e8d-4489-99ab-778715ac96b8",
+      "d40d4adb-ed4d-4ae0-ba43-0c20a201140d",
+      "16e55806-16de-410d-b3cd-c01fc9f53583"
+    ],
+    "max_participants": 10,
+    "min_participants": 6,
+    "estimated_duration_minutes": 60,
+    "session_structure": [
+      "Welcome and introductions",
+      "Primary questions discussion",
+      "Follow-up and probing questions",
+      "Final thoughts and wrap-up"
+    ],
+    "collect_demographics": true,
+    "collect_verbatim_responses": true,
+    "collect_sentiment_analysis": true,
+    "export_formats": [
+      "json",
+      "csv"
+    ],
+    "auto_analyze": true,
+    "analysis_focus_areas": [],
+    "custom_analysis_instructions": "",
+    "client_info": {},
+    "tags": [],
+    "status": "draft",
+    "created_at": "2025-09-11T18:16:35.663509",
+    "updated_at": "2025-09-11T18:16:35.665741",
+    "last_session_at": null
+  }
+]
