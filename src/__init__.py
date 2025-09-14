@@ -1,1 +1,0 @@
-# Synthetic Focus Groups package
