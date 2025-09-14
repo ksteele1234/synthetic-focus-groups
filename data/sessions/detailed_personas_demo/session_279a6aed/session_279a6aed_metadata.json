@@ -1,0 +1,24 @@
+{
+  "study_id": "detailed_personas_demo",
+  "session_id": "session_279a6aed",
+  "total_turns": 9,
+  "personas": [
+    "persona_56eed6",
+    "persona_9ce82b",
+    "persona_07287e"
+  ],
+  "rounds": [
+    1,
+    2,
+    3
+  ],
+  "created_at": "2025-09-12T16:45:47.508239",
+  "files": {
+    "jsonl": "session_279a6aed_20250912_164547.jsonl",
+    "csv": "session_279a6aed_20250912_164547.csv"
+  },
+  "validation": {
+    "schema_errors": 0,
+    "validated_at": "2025-09-12T16:45:47.508250"
+  }
+}

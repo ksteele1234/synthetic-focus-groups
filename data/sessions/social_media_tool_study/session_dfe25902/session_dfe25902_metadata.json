@@ -1,0 +1,24 @@
+{
+  "study_id": "social_media_tool_study",
+  "session_id": "session_dfe25902",
+  "total_turns": 9,
+  "personas": [
+    "sarah_small_business",
+    "mike_marketing_mgr",
+    "jenny_freelancer"
+  ],
+  "rounds": [
+    1,
+    2,
+    3
+  ],
+  "created_at": "2025-09-11T19:47:34.488729",
+  "files": {
+    "jsonl": "session_dfe25902_20250911_194734.jsonl",
+    "csv": "session_dfe25902_20250911_194734.csv"
+  },
+  "validation": {
+    "schema_errors": 0,
+    "validated_at": "2025-09-11T19:47:34.488737"
+  }
+}

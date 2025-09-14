@@ -1,0 +1,38 @@
+[
+  {
+    "name": "Sarah Johnson",
+    "age": 32,
+    "occupation": "Small Business Owner",
+    "background": "Runs a digital marketing agency with 8 employees. Experienced in client management and team leadership.",
+    "gender": "Female",
+    "location": "Austin, TX",
+    "personality_traits": ["entrepreneurial", "detail-oriented", "strategic"],
+    "interests": ["business growth", "technology", "team management"],
+    "pain_points": ["Time management", "Scaling operations", "Client retention"],
+    "goals": ["Growing revenue by 40%", "Expanding team", "Improving client satisfaction"]
+  },
+  {
+    "name": "Mike Rodriguez",
+    "age": 28,
+    "occupation": "Marketing Manager",
+    "background": "Works at a mid-size tech company managing social media campaigns and content strategy.",
+    "gender": "Male",
+    "location": "San Francisco, CA",
+    "personality_traits": ["analytical", "creative", "data-driven"],
+    "interests": ["digital marketing", "analytics", "social media trends"],
+    "pain_points": ["ROI measurement", "Content creation speed", "Platform algorithm changes"],
+    "goals": ["Increase engagement by 25%", "Streamline content workflow", "Master new platforms"]
+  },
+  {
+    "name": "Jennifer Chen",
+    "age": 35,
+    "occupation": "Freelance Consultant",
+    "background": "Independent consultant specializing in business process optimization for startups.",
+    "gender": "Female",
+    "location": "Seattle, WA",
+    "personality_traits": ["independent", "organized", "problem-solver"],
+    "interests": ["productivity tools", "automation", "startup ecosystem"],
+    "pain_points": ["Client acquisition", "Project management", "Work-life balance"],
+    "goals": ["Increase hourly rate", "Standardize processes", "Build passive income"]
+  }
+]
