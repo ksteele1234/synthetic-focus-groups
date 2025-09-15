@@ -206,6 +206,8 @@ Jenny Chen,35,Female,Bachelor's in Communications,"Divorced from Mark (amicable)
                 ["Manual Entry", "Bulk Upload (Text File)", "Bulk Upload (CSV)"],
                 horizontal=True
             )
+            # Ensure dynamic UI updates inside form
+            st.form_submit_button("↻ Update question upload options")
             
             questions = []
             
@@ -310,6 +312,8 @@ Jenny Chen,35,Female,Bachelor's in Communications,"Divorced from Mark (amicable)
                 ["Auto-Generate", "Bulk Upload (CSV)", "Bulk Upload (JSON)"],
                 horizontal=True
             )
+            # Ensure dynamic UI updates inside form
+            st.form_submit_button("↻ Update participant upload options")
             
             custom_personas = None
             participant_count = 8  # default
