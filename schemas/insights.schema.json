@@ -1,0 +1,62 @@
+{
+    "$id": "https://example.com/schemas/insights.schema.json",
+    "type": "object",
+    "required": ["schema_version", "study_id", "aggregate"],
+    "properties": {
+        "schema_version": { "type": "string" },
+        "study_id": { "type": "string" },
+        "aggregation_method": { "type": "string" },
+        "weighting_enabled": { "type": "boolean" },
+        "limitations": { "type": "string" },
+        "aggregate": {
+            "type": "object",
+            "properties": {
+                "themes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["id", "label", "score_weighted", "score_unweighted"],
+                        "properties": {
+                            "id": { "type": "string" },
+                            "label": { "type": "string" },
+                            "score_weighted": { "type": "number" },
+                            "score_unweighted": { "type": "number" },
+                            "agreement_weighted": { "type": ["number", "null"] },
+                            "agreement_unweighted": { "type": ["number", "null"] },
+                            "sentiment_weighted": { "type": ["number", "null"] },
+                            "sentiment_unweighted": { "type": ["number", "null"] }
+                        }
+                    }
+                }
+            },
+            "required": ["themes"]
+        },
+        "by_persona": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["persona_id", "themes"],
+                "properties": {
+                    "persona_id": { "type": "string" },
+                    "themes": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["id", "label", "theme_score"],
+                            "properties": {
+                                "id": { "type": "string" },
+                                "label": { "type": "string" },
+                                "theme_score": { "type": "number" },
+                                "sentiment": { "type": ["number", "null"] },
+                                "quotes": {
+                                    "type": "array",
+                                    "items": { "type": "string" }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

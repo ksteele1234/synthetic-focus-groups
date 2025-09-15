@@ -129,3 +129,18 @@ Functional spec, architecture spec, data model + migrations, milestone backlog, 
 - Multi-tenant requirements for v1.1?
 - Domain packs (healthcare/finance) with stricter guardrails?
 
+## Storage Architecture
+
+- Primary OLTP: PostgreSQL.
+- Vector search: pgvector extension (initial provider), behind `VectorBackend` interface with provider registry.
+- Access: async via `asyncpg`.
+- Migrations: SQL files in `migrations/` (idempotent, replayable in CI).
+- Env:
+  - `DATABASE_URL=postgresql://user:pass@host:port/db`
+  - `VECTOR_PROVIDER=pgvector` (pluggable later: pinecone, weaviate, milvus, qdrant)
+
+### Why this shape
+- Personas, Studies, Sessions, Messages, Insights are relational.
+- Semantic search uses approximate nearest neighbor via pgvector.
+- Exports (CSV/YAML/JSON) read from relational + vector results.
+

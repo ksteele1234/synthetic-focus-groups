@@ -1,0 +1,47 @@
+path,decision,reason,dependents_count,dependents,complexity_rank,domain_personas,domain_studies,domain_insights,domain_guardrails,domain_exports,domain_dashboard,is_used,is_dead_code,security_flag,dependency_flag
+./app.py,keep,"domain_hits=15, complexity=A, used=False",0,,A,3,4,3,0,2,3,False,False,False,False
+./demo_detailed_session.py,keep,"domain_hits=8, complexity=A, used=False",0,,A,2,4,2,0,0,0,False,False,False,False
+./persona_manager.py,keep,"domain_hits=9, complexity=A, used=False",0,,A,3,2,1,0,2,1,False,False,False,False
+./run_synthetic_session.py,keep,"domain_hits=8, complexity=A, used=False",0,,A,1,4,2,0,1,0,False,False,False,False
+./sample_detailed_personas.py,keep,"domain_hits=9, complexity=A, used=False",0,,A,3,3,1,0,0,2,False,False,False,False
+./start_web_app.py,keep,"domain_hits=5, complexity=A, used=False",0,,A,0,3,0,0,1,1,False,False,False,False
+./test_analyst_artifacts.py,keep,"domain_hits=12, complexity=A, used=False",0,,A,1,4,3,0,1,3,False,False,False,False
+./test_enhanced_personas.py,keep,"domain_hits=5, complexity=A, used=False",0,,A,3,2,0,0,0,0,False,False,False,False
+./test_persona_schemas.py,keep,"domain_hits=5, complexity=A, used=False",0,,A,2,2,0,0,0,1,False,False,False,False
+./test_schema_validation.py,keep,"domain_hits=6, complexity=A, used=False",0,,A,1,4,0,0,1,0,False,False,False,False
+./apps/research-api/main.py,keep,"domain_hits=4, complexity=A, used=False",0,,A,1,2,1,0,0,0,False,False,False,False
+./export/__init__.py,keep,"domain_hits=1, complexity=A, used=False",0,,A,0,0,0,0,1,0,False,False,False,False
+./src/main.py,keep,"domain_hits=11, complexity=A, used=False",0,,A,2,3,3,1,2,0,False,False,False,False
+./src/project_manager.py,keep,"domain_hits=7, complexity=A, used=False",0,,A,1,2,2,0,2,0,False,False,False,False
+./src/__init__.py,remove,no-domain-match & no dependents,0,,A,0,0,0,0,0,0,False,False,False,False
+./src/ai/agents.py,keep,"domain_hits=12, complexity=A, used=False",0,,A,1,3,4,0,1,3,False,False,False,False
+./src/ai/openai_client.py,keep,"domain_hits=9, complexity=A, used=False",0,,A,3,2,3,0,0,1,False,False,False,False
+./src/ai/__init__.py,remove,no-domain-match & no dependents,0,,A,0,0,0,0,0,0,False,False,False,False
+./src/export/enhanced_exporter.py,keep,"domain_hits=15, complexity=A, used=False",0,,A,3,2,4,0,2,4,False,False,False,False
+./src/export/exporter.py,keep,"domain_hits=8, complexity=A, used=False",0,,A,0,2,3,0,2,1,False,False,False,False
+./src/export/__init__.py,keep,"domain_hits=1, complexity=A, used=False",0,,A,0,0,0,0,1,0,False,False,False,False
+./src/facilitator/manager.py,keep,"domain_hits=8, complexity=A, used=False",0,,A,1,2,3,1,1,0,False,False,False,False
+./src/facilitator/__init__.py,keep,"domain_hits=1, complexity=A, used=False",0,,A,0,1,0,0,0,0,False,False,False,False
+./src/models/analyst.py,keep,"domain_hits=7, complexity=A, used=False",0,,A,0,3,4,0,0,0,False,False,False,False
+./src/models/enhanced_project.py,keep,"domain_hits=9, complexity=A, used=False",0,,A,2,2,2,0,2,1,False,False,False,False
+./src/models/facilitator.py,keep,"domain_hits=6, complexity=A, used=False",0,,A,0,3,2,1,0,0,False,False,False,False
+./src/models/persona.py,keep,"domain_hits=4, complexity=A, used=False",0,,A,2,1,1,0,0,0,False,False,False,False
+./src/models/persona_schema.py,keep,"domain_hits=8, complexity=A, used=False",0,,A,2,3,1,0,1,1,False,False,False,False
+./src/models/project.py,keep,"domain_hits=7, complexity=A, used=False",0,,A,1,2,2,0,2,0,False,False,False,False
+./src/models/qa_turn.py,keep,"domain_hits=4, complexity=A, used=False",0,,A,1,3,0,0,0,0,False,False,False,False
+./src/models/session.py,keep,"domain_hits=8, complexity=A, used=False",0,,A,1,3,3,0,1,0,False,False,False,False
+./src/models/__init__.py,keep,"domain_hits=2, complexity=A, used=False",0,,A,1,1,0,0,0,0,False,False,False,False
+./src/personas/enhanced_manager.py,keep,"domain_hits=5, complexity=A, used=False",0,,A,3,1,0,0,1,0,False,False,False,False
+./src/personas/generator.py,keep,"domain_hits=5, complexity=A, used=False",0,,A,2,1,1,0,0,1,False,False,False,False
+./src/personas/manager.py,keep,"domain_hits=4, complexity=A, used=False",0,,A,2,1,0,0,1,0,False,False,False,False
+./src/personas/__init__.py,keep,"domain_hits=1, complexity=A, used=False",0,,A,1,0,0,0,0,0,False,False,False,False
+./src/reports/markdown_generator.py,keep,"domain_hits=12, complexity=A, used=False",0,,A,3,3,3,0,1,2,False,False,False,False
+./src/session/synthetic_runner.py,keep,"domain_hits=15, complexity=A, used=False",0,,A,4,4,2,0,1,4,False,False,False,False
+./src/session/__init__.py,keep,"domain_hits=1, complexity=A, used=False",0,,A,0,1,0,0,0,0,False,False,False,False
+./src/storage/qa_storage.py,keep,"domain_hits=5, complexity=A, used=False",0,,A,1,3,0,0,1,0,False,False,False,False
+./src/storage/__init__.py,remove,no-domain-match & no dependents,0,,A,0,0,0,0,0,0,False,False,False,False
+./src/vector/vector_compatibility_poc.py,refactor,security findings,0,,A,3,3,3,0,1,1,False,False,True,False
+./src/visualizations/chart_generator.py,keep,"domain_hits=8, complexity=A, used=False",0,,A,1,2,2,0,0,3,False,False,False,False
+./tests/test_enhanced_integration.py,keep,"domain_hits=14, complexity=A, used=False",0,,A,3,4,3,0,2,2,False,False,False,False
+./tools/audit_repo.py,keep,"domain_hits=39, complexity=A, used=False",0,,A,6,7,6,6,6,8,False,False,False,False
+./tools/evaluate_repo.py,keep,"domain_hits=39, complexity=A, used=False",0,,A,6,7,6,6,6,8,False,False,False,False
