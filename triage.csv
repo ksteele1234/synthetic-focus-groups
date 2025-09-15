@@ -2,7 +2,6 @@ path,decision,reason,dependents_count,dependents,complexity_rank,domain_personas
 ./app.py,keep,"domain_hits=15, complexity=A, used=False",0,,A,3,4,3,0,2,3,False,False,False,False
 ./demo_detailed_session.py,keep,"domain_hits=8, complexity=A, used=False",0,,A,2,4,2,0,0,0,False,False,False,False
 ./persona_manager.py,keep,"domain_hits=9, complexity=A, used=False",0,,A,3,2,1,0,2,1,False,False,False,False
-./registry.py,keep,"domain_hits=1, complexity=A, used=False",0,,A,0,1,0,0,0,0,False,False,False,False
 ./run_synthetic_session.py,keep,"domain_hits=8, complexity=A, used=False",0,,A,1,4,2,0,1,0,False,False,False,False
 ./sample_detailed_personas.py,keep,"domain_hits=9, complexity=A, used=False",0,,A,3,3,1,0,0,2,False,False,False,False
 ./start_web_app.py,keep,"domain_hits=5, complexity=A, used=False",0,,A,0,3,0,0,1,1,False,False,False,False
@@ -39,11 +38,14 @@ path,decision,reason,dependents_count,dependents,complexity_rank,domain_personas
 ./src/session/synthetic_runner.py,keep,"domain_hits=15, complexity=A, used=False",0,,A,4,4,2,0,1,4,False,False,False,False
 ./src/session/__init__.py,keep,"domain_hits=1, complexity=A, used=False",0,,A,0,1,0,0,0,0,False,False,False,False
 ./src/storage/qa_storage.py,keep,"domain_hits=5, complexity=A, used=False",0,,A,1,3,0,0,1,0,False,False,False,False
-./src/vector/backend_pgvector.py,refactor,security findings,0,,A,0,2,2,0,0,1,False,False,True,False
+./src/vector/backend_pgvector.py,refactor,security findings,0,,A,0,2,1,0,0,1,False,False,True,False
 ./src/vector/interface.py,keep,"domain_hits=1, complexity=A, used=False",0,,A,0,0,0,0,0,1,False,False,False,False
+./src/vector/registry.py,keep,"domain_hits=1, complexity=A, used=False",0,,A,0,1,0,0,0,0,False,False,False,False
 ./src/vector/use.py,keep,"domain_hits=3, complexity=A, used=False",0,,A,0,2,1,0,0,0,False,False,False,False
+./src/vector/__init__.py,remove,no-domain-match & no dependents,0,,A,0,0,0,0,0,0,False,False,False,False
 ./src/visualizations/chart_generator.py,keep,"domain_hits=8, complexity=A, used=False",0,,A,1,2,2,0,0,3,False,False,False,False
 ./tests/test_enhanced_integration.py,keep,"domain_hits=14, complexity=A, used=False",0,,A,3,4,3,0,2,2,False,False,False,False
+./tests/test_vector_pg.py,remove,no-domain-match & no dependents,0,,A,0,0,0,0,0,0,False,False,False,False
 ./tools/audit_repo.py,keep,"domain_hits=39, complexity=A, used=False",0,,A,6,7,6,6,6,8,False,False,False,False
 ./tools/evaluate_repo.py,keep,"domain_hits=39, complexity=A, used=False",0,,A,6,7,6,6,6,8,False,False,False,False
 ./tools/migrate.py,keep,"domain_hits=1, complexity=A, used=False",0,,A,0,1,0,0,0,0,False,False,False,False

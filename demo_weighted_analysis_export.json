@@ -1,0 +1,56 @@
+{
+  "session_info": {
+    "session_id": "demo_session_001",
+    "created_at": "2025-09-14T22:32:55.262629",
+    "total_responses": 6,
+    "personas_analyzed": 3
+  },
+  "weighting_system": {
+    "weighted_analysis_enabled": true,
+    "persona_weights": {
+      "sarah_small_business": 3.0,
+      "mike_marketing_mgr": 2.0,
+      "jenny_freelancer": 1.5
+    },
+    "normalized_weights": {
+      "sarah_small_business": 1.3846153846153846,
+      "mike_marketing_mgr": 0.9230769230769231,
+      "jenny_freelancer": 0.6923076923076923
+    },
+    "primary_icp": "sarah_small_business"
+  },
+  "weighted_analysis": {
+    "overall_sentiment": {
+      "weighted_score": 0.29615384615384616,
+      "confidence": "high",
+      "total_weight_applied": 6.000000000000001
+    },
+    "themes_by_importance": [
+      [
+        "pricing_acceptance",
+        2.769230769230769
+      ],
+      [
+        "tool_switching",
+        1.3846153846153846
+      ],
+      [
+        "integration_needs",
+        1.3846153846153846
+      ],
+      [
+        "time_savings",
+        1.3846153846153846
+      ],
+      [
+        "roi_focus",
+        1.3846153846153846
+      ]
+    ]
+  },
+  "insights": [
+    "Primary ICP (Sarah) shows strong willingness to pay $30-50/month for integrated solution",
+    "Tool switching and integration needs are the highest weighted concerns",
+    "Clear pricing differentiation needed between business owners ($30-50) and freelancers ($15-20)"
+  ]
+}

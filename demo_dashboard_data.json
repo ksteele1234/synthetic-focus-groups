@@ -1,0 +1,55 @@
+{
+  "key_metrics": {
+    "total_responses": 6,
+    "personas": 3,
+    "weighted_sentiment": "0.296",
+    "primary_icp_engagement": 2
+  },
+  "top_insights": [
+    "Primary ICP (Sarah) shows strong willingness to pay $30-50/month for integrated solution",
+    "Tool switching and integration needs are the highest weighted concerns",
+    "Clear pricing differentiation needed between business owners ($30-50) and freelancers ($15-20)"
+  ],
+  "priority_themes": [
+    {
+      "theme": "pricing_acceptance",
+      "weight": 2.769230769230769
+    },
+    {
+      "theme": "tool_switching",
+      "weight": 1.3846153846153846
+    },
+    {
+      "theme": "integration_needs",
+      "weight": 1.3846153846153846
+    },
+    {
+      "theme": "analytics",
+      "weight": 1.3846153846153846
+    },
+    {
+      "theme": "time_savings",
+      "weight": 1.3846153846153846
+    }
+  ],
+  "persona_summary": [
+    {
+      "name": "Sarah Thompson",
+      "weight": "1.38x",
+      "responses": 2,
+      "avg_sentiment": "0.400"
+    },
+    {
+      "name": "Mike Rodriguez",
+      "weight": "0.92x",
+      "responses": 2,
+      "avg_sentiment": "0.250"
+    },
+    {
+      "name": "Jenny Chen",
+      "weight": "0.69x",
+      "responses": 2,
+      "avg_sentiment": "0.150"
+    }
+  ]
+}

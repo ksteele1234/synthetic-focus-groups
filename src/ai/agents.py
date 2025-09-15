@@ -71,6 +71,12 @@ class OrchestratorAgent(BaseAgent):
                 {"agent": "coding_specialist", "task": "analyze_responses", "dependencies": []},
                 {"agent": "orchestrator", "task": "generate_summary", "dependencies": ["analyze_responses"]}
             ]
+        elif workflow_type == "persona_research_and_build":
+            workflow_steps = [
+                {"agent": "persona_research", "task": "build_dossier", "dependencies": []},
+                {"agent": "persona_compiler", "task": "compile_personas", "dependencies": ["build_dossier"]},
+                {"agent": "orchestrator", "task": "generate_summary", "dependencies": ["compile_personas"]}
+            ]
         else:
             workflow_steps = [
                 {"agent": "orchestrator", "task": "custom_workflow", "dependencies": []}
@@ -120,6 +126,20 @@ class OrchestratorAgent(BaseAgent):
                         'project_data': workflow['project_data'],
                         'previous_results': workflow['results']
                     }
+                    # Special payloads for persona workflow
+                    if agent_type == 'persona_research' and task_type == 'build_dossier':
+                        task_data.update({
+                            'topic': workflow['project_data'].get('research_topic') or workflow['project_data'].get('name', ''),
+                            'region': workflow['project_data'].get('region', 'US'),
+                            'include_social': True
+                        })
+                    if agent_type == 'persona_compiler' and task_type == 'compile_personas':
+                        dossier_key = 'persona_research_build_dossier'
+                        dossier_res = workflow['results'].get(dossier_key, {})
+                        task_data.update({
+                            'dossier': dossier_res.get('dossier', {}),
+                            'n_personas': workflow['project_data'].get('n_personas', 3)
+                        })
                     result = agent.process(task_data)
                 else:
                     result = {'success': False, 'error': f'Agent {agent_type} not registered'}
@@ -814,21 +834,118 @@ class DataVisualizationDesigner(BaseAgent):
         }
 
 
+class SafetyAgent(BaseAgent):
+    """Safety agent: basic prompt/output moderation and guardrail logging."""
+    def __init__(self, ai_client: OpenAIClient = None):
+        super().__init__("Safety Agent", "Guardrails", ai_client)
+        self.pi_patterns = [
+            r"[\w\.-]+@[\w\.-]+\.[a-zA-Z]{2,}",  # email
+            r"\b\+?\d[\d\s\-]{7,}\b"  # phone-ish
+        ]
+        self.toxic_keywords = ["idiot", "stupid", "hate", "racist"]
+
+    def process(self, task: Dict[str, Any]) -> Dict[str, Any]:
+        text = task.get('text', '')
+        events = self.check_text(text)
+        return {"success": True, "events": events}
+
+    def check_turn(self, question: str, answer: str) -> List[Dict[str, Any]]:
+        events = []
+        events.extend(self.check_text(question))
+        events.extend(self.check_text(answer))
+        return events
+
+    def check_text(self, text: str) -> List[Dict[str, Any]]:
+        import re
+        events = []
+        for pat in self.pi_patterns:
+            if re.search(pat, text or ""):
+                events.append({
+                    'type': 'pii_detected', 'severity': 'medium', 'details': {'pattern': pat},
+                    'ts': datetime.now().isoformat()
+                })
+        lower = (text or "").lower()
+        if any(k in lower for k in self.toxic_keywords):
+            events.append({
+                'type': 'toxicity', 'severity': 'low', 'details': {'keywords': self.toxic_keywords},
+                'ts': datetime.now().isoformat()
+            })
+        return events
+
+
+class ConsistencyAgent(BaseAgent):
+    """Detect persona voice drift using simple lexical similarity across answers."""
+    def __init__(self, ai_client: OpenAIClient = None):
+        super().__init__("Consistency Agent", "Voice Consistency", ai_client)
+        self.last_answer_by_persona: Dict[str, str] = {}
+
+    def process(self, task: Dict[str, Any]) -> Dict[str, Any]:
+        persona_id = task.get('persona_id')
+        answer = task.get('answer', '')
+        drift = self.check_drift(persona_id, answer)
+        return {"success": True, "drift": drift}
+
+    def check_drift(self, persona_id: str, answer: str) -> Optional[Dict[str, Any]]:
+        prev = self.last_answer_by_persona.get(persona_id)
+        self.last_answer_by_persona[persona_id] = answer
+        if not prev:
+            return None
+        # Jaccard similarity on word sets as a simple proxy
+        def words(s: str):
+            import re
+            return set(w for w in re.findall(r"[a-zA-Z]+", (s or "").lower()) if len(w) > 2)
+        a, b = words(prev), words(answer)
+        union = len(a | b) or 1
+        jacc = len(a & b) / union
+        drift_score = 1 - jacc
+        if drift_score > 0.75:
+            return {
+                'type': 'voice_drift', 'severity': 'low',
+                'details': {'drift_score': drift_score}, 'ts': datetime.now().isoformat()
+            }
+        return None
+
+
 def create_agent_team(ai_client: OpenAIClient = None) -> Dict[str, BaseAgent]:
     """Create a complete team of AI agents."""
     orchestrator = OrchestratorAgent(ai_client)
     methodologist = SurveyMethodologistAgent(ai_client)
     coding_specialist = QualitativeCodingSpecialist(ai_client)
     viz_designer = DataVisualizationDesigner(ai_client)
+
+    # Optional persona agents (wire if credentials exist)
+    from .persona_agents import ResearchAgent, PersonaCompilerAgent
+    from .perplexity_client import PerplexityClient
+    from .claude_client import ClaudeClient
+    persona_research = None
+    persona_compiler = None
+    try:
+        pplx = PerplexityClient()
+        from research.web_persona_builder import WebPersonaBuilder
+        persona_research = ResearchAgent(pplx, WebPersonaBuilder())
+    except Exception:
+        pass
+    try:
+        claude = ClaudeClient()
+        from models.persona_schema import DETAILED_PERSONA_SCHEMA
+        persona_compiler = PersonaCompilerAgent(claude, DETAILED_PERSONA_SCHEMA)
+    except Exception:
+        pass
     
     # Register agents with orchestrator
     orchestrator.register_agent('methodologist', methodologist)
     orchestrator.register_agent('coding_specialist', coding_specialist)
     orchestrator.register_agent('viz_designer', viz_designer)
+    if persona_research:
+        orchestrator.register_agent('persona_research', persona_research)
+    if persona_compiler:
+        orchestrator.register_agent('persona_compiler', persona_compiler)
     
     return {
         'orchestrator': orchestrator,
         'methodologist': methodologist,
         'coding_specialist': coding_specialist,
-        'viz_designer': viz_designer
+        'viz_designer': viz_designer,
+        'persona_research': persona_research,
+        'persona_compiler': persona_compiler,
     }

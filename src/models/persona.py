@@ -109,6 +109,13 @@ class Persona:
     updated_at: datetime = field(default_factory=datetime.now)
     active: bool = True
     
+    # Provenance (optional)
+    created_for_project_id: str = ""
+    created_for_project_name: str = ""
+    
+    # Evidence/citations (optional)
+    evidence_quotes: List[Dict[str, Any]] = field(default_factory=list)
+    
     def __post_init__(self):
         """Initialize persona with default personality prompt if not provided."""
         # Map legacy fields for backward compatibility
@@ -321,7 +328,10 @@ class Persona:
             'context_instructions': self.context_instructions,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
-            'active': self.active
+            'active': self.active,
+            'created_for_project_id': self.created_for_project_id,
+'created_for_project_name': self.created_for_project_name,
+            'evidence_quotes': self.evidence_quotes
         }
     
     @classmethod
@@ -333,6 +343,10 @@ class Persona:
         if 'updated_at' in data and isinstance(data['updated_at'], str):
             data['updated_at'] = datetime.fromisoformat(data['updated_at'])
             
+        # Map optional provenance fields if present
+        data.setdefault('created_for_project_id', '')
+        data.setdefault('created_for_project_name', '')
+        data.setdefault('evidence_quotes', [])
         return cls(**data)
     
     def update_prompt(self) -> None:

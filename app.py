@@ -64,8 +64,12 @@ def main():
         
         # System status
         st.subheader("System Status")
-        ai_client = create_openai_client()
-        st.write("🤖 AI Client:", "✅ Connected" if ai_client else "❌ Not Available")
+        demo_mode = os.environ.get('DEMO_MODE', '').lower() == 'true'
+        if demo_mode:
+            st.write("🤖 AI Client:", "⚠️ Demo Mode")
+        else:
+            ai_client = create_openai_client()
+            st.write("🤖 AI Client:", "✅ Connected" if ai_client else "❌ Not Available")
         st.write("💾 Data Storage:", "✅ Ready")
         
         # Quick stats
@@ -178,6 +182,12 @@ Jenny Chen,35,Female,Bachelor's in Communications,"Divorced from Mark (amicable)
     with st.form("study_creator_form"):
         col1, col2 = st.columns(2)
         
+        # Ensure session storage for uploads
+        if 'uploaded_questions' not in st.session_state:
+            st.session_state.uploaded_questions = []
+        if 'uploaded_personas' not in st.session_state:
+            st.session_state.uploaded_personas = []
+        
         with col1:
             st.subheader("Basic Information")
             study_name = st.text_input("Study Name", value="Consumer Research Study")
@@ -234,6 +244,56 @@ Jenny Chen,35,Female,Bachelor's in Communications,"Divorced from Mark (amicable)
                         st.dataframe(df.head())
                     else:
                         st.error("CSV must have a 'question' column")
+            
+            # New: Multi-file upload with Excel support and dedicated action
+            st.markdown("**Question Files (CSV, TXT, XLSX)**")
+            q_files = st.file_uploader(
+                "Upload question files",
+                type=["csv", "txt", "xlsx"],
+                accept_multiple_files=True,
+                key="questions_multi_upload"
+            )
+            include_uploaded_q = st.checkbox("Include uploaded question files", value=True)
+            if st.form_submit_button("➕ Add Question Files"):
+                added = 0
+                for f in q_files or []:
+                    name = f.name.lower()
+                    try:
+                        if name.endswith('.txt'):
+                            content = f.read().decode('utf-8')
+                            new_qs = [line.strip() for line in content.split('\n') if line.strip()]
+                        elif name.endswith('.csv'):
+                            df = pd.read_csv(f)
+                            if 'question' in df.columns:
+                                new_qs = df['question'].dropna().astype(str).tolist()
+                            else:
+                                # take first non-empty column
+                                first_col = df.columns[0]
+                                new_qs = df[first_col].dropna().astype(str).tolist()
+                        elif name.endswith('.xlsx'):
+                            try:
+                                df = pd.read_excel(f)
+                            except Exception as ex:
+                                st.error("Reading Excel requires openpyxl. Install with: pip install openpyxl")
+                                continue
+                            if 'question' in df.columns:
+                                new_qs = df['question'].dropna().astype(str).tolist()
+                            else:
+                                first_col = df.columns[0]
+                                new_qs = df[first_col].dropna().astype(str).tolist()
+                        else:
+                            new_qs = []
+                        st.session_state.uploaded_questions.extend(new_qs)
+                        added += len(new_qs)
+                    except Exception as e:
+                        st.error(f"Failed to parse {f.name}: {e}")
+                if added:
+                    st.success(f"Added {added} questions from files")
+                else:
+                    st.info("No questions added")
+            if st.session_state.uploaded_questions:
+                st.caption(f"Uploaded questions: {len(st.session_state.uploaded_questions)} (will be included: {include_uploaded_q})")
+            
         
         with col2:
             st.subheader("Participant Configuration")
@@ -254,7 +314,7 @@ Jenny Chen,35,Female,Bachelor's in Communications,"Divorced from Mark (amicable)
             elif persona_source == "Bulk Upload (CSV)":
                 st.write("**Upload CSV with persona details:**")
                 st.write("Required columns: name, age, occupation, background")
-                st.write("Optional: gender, location, personality_traits, interests")
+                st.write("Optional: gender, location, personality_traits, interests, and advanced dimensions")
                 st.info("💡 Use the CSV template above to get started!")
                 
                 personas_csv = st.file_uploader(
@@ -275,7 +335,7 @@ Jenny Chen,35,Female,Bachelor's in Communications,"Divorced from Mark (amicable)
             
             elif persona_source == "Bulk Upload (JSON)":
                 st.write("**Upload JSON file with persona array:**")
-                st.write("Format: [{\"name\": \"...\", \"age\": 30, \"occupation\": \"...\", ...}, ...]")
+                st.write("Format: [{\"name\": \"...\", \"age\": 30, \"occupation\": \"...\", ...}] including advanced fields")
                 st.info("💡 Use the JSON template above to get started!")
                 
                 personas_json = st.file_uploader(
@@ -304,6 +364,72 @@ Jenny Chen,35,Female,Bachelor's in Communications,"Divorced from Mark (amicable)
                     except json.JSONDecodeError:
                         st.error("Invalid JSON format")
             
+            # New: dedicated upload for participant information (CSV/JSON/XLSX)
+            st.markdown("**Upload Participant Information (CSV, JSON, XLSX)**")
+            p_files = st.file_uploader(
+                "Upload participant files",
+                type=["csv", "json", "xlsx"],
+                accept_multiple_files=True,
+                key="participants_multi_upload"
+            )
+            include_uploaded_personas = st.checkbox("Include uploaded participants", value=True)
+            if st.form_submit_button("👥 Add Participant Files"):
+                added = 0
+                for f in p_files or []:
+                    name = f.name.lower()
+                    try:
+                        if name.endswith('.json'):
+                            data = json.loads(f.read().decode('utf-8'))
+                            if isinstance(data, dict):
+                                data = [data]
+                            df = pd.DataFrame(data)
+                        elif name.endswith('.csv'):
+                            df = pd.read_csv(f)
+                        elif name.endswith('.xlsx'):
+                            try:
+                                df = pd.read_excel(f)
+                            except Exception:
+                                st.error("Reading Excel requires openpyxl. Install with: pip install openpyxl")
+                                continue
+                        else:
+                            continue
+                        parsed = convert_uploaded_personas_to_format(df)
+                        st.session_state.uploaded_personas.extend(parsed)
+                        added += len(parsed)
+                    except Exception as e:
+                        st.error(f"Failed to parse {f.name}: {e}")
+                if added:
+                    st.success(f"Added {added} participants from files")
+                else:
+                    st.info("No participants added")
+            if st.session_state.uploaded_personas:
+                st.caption(f"Uploaded participants ready: {len(st.session_state.uploaded_personas)} (will be included: {include_uploaded_personas})")
+            
+            st.subheader("Session Settings")
+            if st.checkbox("Build persona from web evidence here"):
+                from research.web_persona_builder import WebPersonaBuilder
+                query_inline = st.text_input("Evidence query", value="social media management tool")
+                subs_inline = st.text_input("Subreddits (comma-separated)", value="smallbusiness, marketing")
+                web_build = st.form_submit_button("🔎 Build persona from web evidence")
+                if web_build:
+                    try:
+                        builder = WebPersonaBuilder()
+                        sub_list = [s.strip() for s in subs_inline.split(',') if s.strip()]
+                        persona_dict = builder.build_persona_from_evidence(query_inline, subreddits=sub_list)
+                        # Convert to runner persona format
+                        new_persona = {
+                            'persona_id': persona_dict.get('name','web_persona').lower().replace(' ','_'),
+                            'name': persona_dict.get('name','Web Persona'),
+                            'role': persona_dict.get('occupation','Participant'),
+                            'background': persona_dict.get('persona_summary',''),
+                        }
+                        if 'current_personas' not in st.session_state:
+                            st.session_state.current_personas = []
+                        st.session_state.current_personas.append(new_persona)
+                        st.success(f"Added persona '{new_persona['name']}' from web evidence")
+                    except Exception as e:
+                        st.error(f"Web persona build failed: {e}")
+
             st.subheader("Session Settings")
             estimated_duration = st.slider("Estimated Duration (minutes)", 30, 120, 60)
             num_rounds = st.slider("Number of Q&A Rounds", 1, 5, 3)
@@ -351,31 +477,80 @@ def create_study(name: str, topic: str, description: str, questions: List[str],
                 personas = convert_uploaded_personas_to_format(custom_personas)
                 st.info(f"🎯 Using {len(personas)} uploaded personas")
             else:
-                # Generate sample personas
-                personas = create_sample_personas()[:participant_count]
-                st.info(f"🤖 Generated {len(personas)} AI personas")
+                # If user added personas via inline web research, prefer those
+                if 'current_personas' in st.session_state and st.session_state.current_personas:
+                    personas = st.session_state.current_personas
+                    st.info(f"🌐 Using {len(personas)} web-researched personas")
+                else:
+                    # Generate sample personas
+                    personas = create_sample_personas()[:participant_count]
+                    st.info(f"🤖 Generated {len(personas)} AI personas")
             
             if weighted:
-                # Assign varying weights to personas
-                weights = [3.0, 2.5, 2.0, 1.5, 1.0] * (participant_count // 5 + 1)
+                st.subheader("Set Persona Weights")
+                weight_configs = []
                 for i, persona in enumerate(personas):
-                    weight = weights[i] if i < len(weights) else 1.0
-                    is_primary = i == 0  # First persona is primary ICP
-                    
+                    with st.expander(f"⚖️ {persona.get('name', persona.get('persona_id', f'Persona {i+1}'))}", expanded=i < 5):
+                        w = st.slider(f"Weight for {persona.get('persona_id', i)}", 0.5, 5.0, 1.0, 0.5, key=f"weight_{i}")
+                        r = st.number_input(f"Rank for {persona.get('persona_id', i)}", min_value=1, max_value=len(personas), value=i+1, key=f"rank_{i}")
+                        is_icp = st.checkbox("Primary ICP", value=(i == 0), key=f"icp_{i}")
+                        notes = st.text_input("Notes", value=f"{persona.get('role','Participant')}", key=f"notes_{i}")
+                        weight_configs.append({
+                            'persona_id': persona.get('persona_id') or persona.get('id') or f"persona_{i}",
+                            'weight': float(w),
+                            'rank': int(r),
+                            'is_primary_icp': bool(is_icp),
+                            'notes': notes
+                        })
+                # Persist to project
+                project.persona_weights = []
+                for cfg in weight_configs:
                     project.persona_weights.append(PersonaWeight(
-                        persona_id=persona['persona_id'],
-                        weight=weight,
-                        rank=i + 1,
-                        is_primary_icp=is_primary,
-                        notes=f"Generated persona - {persona['role']}"
+                        persona_id=cfg['persona_id'],
+                        weight=cfg['weight'],
+                        rank=cfg['rank'],
+                        is_primary_icp=cfg['is_primary_icp'],
+                        notes=cfg['notes']
                     ))
-                
-                if project.persona_weights:
-                    project.set_primary_icp(project.persona_weights[0].persona_id)
+                icps = [cfg['persona_id'] for cfg in weight_configs if cfg['is_primary_icp']]
+                if icps:
+                    project.set_primary_icp(icps[0])
+            
+            # Include uploaded questions if requested
+            try:
+                if include_uploaded_q and st.session_state.get('uploaded_questions'):
+                    questions = (questions or []) + st.session_state.uploaded_questions
+            except Exception:
+                pass
             
             # Store in session state
             st.session_state.current_project = project
-            st.session_state.current_personas = personas
+            # Build personas from multiple sources
+            # Tag any created personas with project provenance if applicable
+            try:
+                for p in st.session_state.get('uploaded_personas', []):
+                    p['created_for_project_id'] = project.id
+                    p['created_for_project_name'] = project.name
+            except Exception:
+                pass
+            persona_pool = personas
+            try:
+                if include_uploaded_personas and st.session_state.get('uploaded_personas'):
+                    persona_pool = persona_pool + st.session_state.uploaded_personas
+            except Exception:
+                pass
+            st.session_state.current_personas = persona_pool
+            
+            # Persist weight configs for use by runner
+            if weighted and project.persona_weights:
+                st.session_state.current_persona_weights = {
+                    pw.persona_id: {
+                        'weight': pw.weight,
+                        'rank': pw.rank,
+                        'is_primary_icp': pw.is_primary_icp,
+                        'notes': pw.notes,
+                    } for pw in project.persona_weights
+                }
             
             st.success(f"✅ Study '{name}' created successfully!")
             st.info(f"🎯 Project ID: {project.id}")
@@ -394,6 +569,60 @@ def create_study(name: str, topic: str, description: str, questions: List[str],
             
         except Exception as e:
             st.error(f"Error creating study: {e}")
+
+def export_current_study_profiles(project, personas, sections: set | None = None):
+    """Generate DOCX/PDF ZIPs for current study participants and expose download buttons."""
+    import io, zipfile
+    from persona_manager import export_persona_docx, export_persona_pdf
+    # Personas here are runner-format dicts; attempt to load from storage if needed
+    # We will render a lightweight profile using available fields
+    docx_zip = io.BytesIO()
+    pdf_zip = io.BytesIO()
+    with zipfile.ZipFile(docx_zip, 'w', zipfile.ZIP_DEFLATED) as zd, zipfile.ZipFile(pdf_zip, 'w', zipfile.ZIP_DEFLATED) as zp:
+        for p in personas:
+            # Build a minimal persona-like object with attributes expected by exporters
+            class PObj:
+                pass
+            po = PObj()
+            po.name = p.get('name') or p.get('persona_id')
+            po.occupation = p.get('role','')
+            po.age = int(p.get('age', 35)) if isinstance(p.get('age', 35), (int, float)) else 35
+            po.education = p.get('education','')
+            po.annual_income = p.get('annual_income','')
+            po.location = p.get('location','')
+            po.relationship_family = p.get('relationship_family','')
+            po.created_for_project_name = project.name
+            po.persona_summary = p.get('background','')
+            po.personality_traits = p.get('personality_traits', [])
+            po.values = p.get('values', [])
+            po.community_involvement = p.get('community_involvement', [])
+            po.major_struggles = p.get('major_struggles', [])
+            po.deep_fears_business = p.get('deep_fears_business', [])
+            po.previous_software_tried = p.get('previous_software_tried', [])
+            po.tangible_business_results = p.get('tangible_business_results', [])
+            po.tangible_personal_results = p.get('tangible_personal_results', [])
+            po.emotional_transformations = p.get('emotional_transformations', [])
+            po.if_only_soundbites = p.get('if_only_soundbites', [])
+            po.desired_reputation = p.get('desired_reputation', [])
+            po.things_to_avoid = p.get('things_to_avoid', [])
+            po.unwanted_quotes = p.get('unwanted_quotes', [])
+            po.big_picture_aspirations = p.get('big_picture_aspirations','')
+            po.ideal_day_scenario = p.get('ideal_day_scenario','')
+            po.evidence_quotes = p.get('evidence_quotes', [])
+            filename = (po.name or 'participant').replace(' ','_').lower()
+            try:
+                zd.writestr(f"{filename}_profile.docx", export_persona_docx(po, sections=sections))
+            except Exception:
+                pass
+            try:
+                zp.writestr(f"{filename}_profile.pdf", export_persona_pdf(po, sections=sections))
+            except Exception:
+                pass
+    # Expose as download buttons
+    import streamlit as st
+    st.download_button("Download Study Profiles (DOCX ZIP)", docx_zip.getvalue(), file_name="study_profiles_docx.zip", mime="application/zip")
+    st.download_button("Download Study Profiles (PDF ZIP)", pdf_zip.getvalue(), file_name="study_profiles_pdf.zip", mime="application/zip")
+
 
 def show_run_manager():
     """Run manager interface for executing studies."""
@@ -424,10 +653,47 @@ def show_run_manager():
     
     with col2:
         st.subheader("Session Controls")
+        with st.expander("Profile Export Options", expanded=False):
+            section_options = [
+                ("Identity/Provenance", "identity"),
+                ("Summary", "summary"),
+                ("Personality Traits", "traits"),
+                ("Values", "values"),
+                ("Community Involvement", "community"),
+                ("Major Struggles", "struggles"),
+                ("Deep Fears (Business)", "fears_business"),
+                ("Previous Software Tried", "prev_software"),
+                ("Desired Results (Business)", "results_business"),
+                ("Desired Results (Personal)", "results_personal"),
+                ("Emotional Transformations", "emotional"),
+                ("If Only Soundbites", "if_only"),
+                ("Desired Reputation", "reputation"),
+                ("Things To Avoid", "avoid"),
+                ("Unwanted Quotes", "unwanted"),
+                ("Big Picture Aspirations", "big_picture"),
+                ("Day-in-the-Life", "day_in_life"),
+                ("Sources & Citations", "citations"),
+            ]
+            default_keys = {k for _, k in section_options}
+            selected_sections = st.multiselect(
+                "Include sections",
+                options=[k for _, k in section_options],
+                default=list(default_keys),
+                format_func=lambda key: next(lbl for lbl,k in section_options if k==key)
+            )
+        if st.button("📄 Export Current Study Profiles (DOCX/PDF ZIP)"):
+            try:
+                export_current_study_profiles(project, personas, sections=set(selected_sections))
+                st.success("Profiles ready for download (see buttons below)")
+            except Exception as e:
+                st.error(f"Profile export failed: {e}")
         
         if not st.session_state.session_running:
             if st.button("🚀 Start Session", type="primary"):
                 start_session(project, personas)
+            # Weight editor after creation
+            if st.button("⚖️ View/Edit Weights"):
+                st.session_state.show_weight_editor = True
         else:
             if st.button("⏹️ Stop Session", type="secondary"):
                 stop_session()
@@ -441,6 +707,43 @@ def show_run_manager():
                 st.session_state.session_progress = 0
             
             progress_bar.progress(st.session_state.session_progress / 100)
+    
+    # Optional weight editor panel
+    if st.session_state.get('show_weight_editor'):
+        st.subheader("Adjust Persona Weights")
+        weight_map = st.session_state.get('current_persona_weights', {})
+        for p in personas:
+            pid = p.get('persona_id') or p.get('id')
+            if not pid:
+                continue
+            cfg = weight_map.get(pid, {'weight':1.0,'rank':1,'is_primary_icp':False,'notes':p.get('role','')})
+            cols = st.columns([3,2,2,3])
+            with cols[0]:
+                st.write(p.get('name', pid))
+            with cols[1]:
+                cfg['weight'] = float(st.slider(f"W:{pid}", 0.5, 5.0, float(cfg['weight']), 0.5, key=f"w_edit_{pid}"))
+            with cols[2]:
+                cfg['rank'] = int(st.number_input(f"R:{pid}", 1, len(personas), int(cfg['rank']), key=f"r_edit_{pid}"))
+            with cols[3]:
+                cfg['is_primary_icp'] = bool(st.checkbox(f"ICP:{pid}", value=bool(cfg['is_primary_icp']), key=f"i_edit_{pid}"))
+            weight_map[pid] = cfg
+        st.session_state.current_persona_weights = weight_map
+        if st.button("Save Weights"):
+            # Reflect into project model too
+            project.persona_weights = []
+            for pid, cfg in weight_map.items():
+                project.persona_weights.append(PersonaWeight(
+                    persona_id=pid,
+                    weight=cfg['weight'],
+                    rank=cfg['rank'],
+                    is_primary_icp=cfg['is_primary_icp'],
+                    notes=cfg.get('notes','')
+                ))
+            icps = [pid for pid,cfg in weight_map.items() if cfg['is_primary_icp']]
+            if icps:
+                project.set_primary_icp(icps[0])
+            st.success("Weights updated")
+            st.session_state.show_weight_editor = False
 
 def start_session(project: EnhancedProject, personas: List[Dict]):
     """Start a synthetic focus group session."""
@@ -460,7 +763,8 @@ def start_session(project: EnhancedProject, personas: List[Dict]):
                 study_id=study_id,
                 topic=project.research_topic,
                 personas=personas,
-                num_questions=len(project.research_questions) if project.research_questions else 3
+                num_questions=len(project.research_questions) if project.research_questions else 3,
+                persona_weights=st.session_state.get('current_persona_weights')
             )
             
             st.session_state.session_results = results
@@ -507,7 +811,7 @@ def show_results_viewer():
     st.divider()
     
     # Tabs for different views
-    tab1, tab2, tab3, tab4 = st.tabs(["📈 Charts", "📝 Insights", "💬 Transcripts", "📋 Raw Data"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📈 Charts", "📝 Insights", "💬 Transcripts", "📋 Raw Data", "🛡️ Guardrails"])
     
     with tab1:
         show_charts(results)
@@ -520,42 +824,75 @@ def show_results_viewer():
     
     with tab4:
         show_raw_data(results)
+    
+    with tab5:
+        show_guardrails(results)
 
 def show_charts(results: Dict):
-    """Display charts and visualizations."""
+    """Display charts and visualizations from actual results with weighted/unweighted toggle."""
     st.subheader("📈 Session Analytics")
+
+    use_weighted = st.checkbox("Use weighted analysis", value=True)
+
+    # Build theme frequencies from turns
+    qa_turns = results.get('qa_turns', [])
+    weights = {}
+    try:
+        weights = results.get('weighting_info', {}).get('analysis_weights', {})
+    except Exception:
+        weights = {}
     
-    # Mock data for demonstration - in real implementation, parse from results
+    from collections import defaultdict
+    theme_counts = defaultdict(float)
+    unweighted_counts = defaultdict(int)
+
+    for t in qa_turns:
+        try:
+            persona_id = getattr(t, 'persona_id', None) or t.get('persona_id')
+            w = float(weights.get(persona_id, 1.0)) if use_weighted else 1.0
+            tags = getattr(t, 'tags', None) or t.get('tags', [])
+            for tag in tags or []:
+                theme_counts[tag] += w
+                unweighted_counts[tag] += 1
+        except Exception:
+            continue
+
+    # Prepare top themes
+    items = sorted(theme_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+    df_themes = pd.DataFrame({
+        'Theme': [k for k, _ in items],
+        'Score': [v for _, v in items]
+    }) if items else pd.DataFrame({'Theme': [], 'Score': []})
+
     col1, col2 = st.columns(2)
-    
     with col1:
-        # Theme frequency chart
-        themes_data = {
-            'Theme': ['Pricing Concerns', 'Feature Requests', 'Usability Issues', 'Integration Needs'],
-            'Frequency': [8, 6, 4, 3]
-        }
-        fig_themes = px.bar(themes_data, x='Frequency', y='Theme', orientation='h',
-                          title="Top Themes by Frequency")
+        fig_themes = px.bar(df_themes, x='Score', y='Theme', orientation='h', title="Top Themes")
         st.plotly_chart(fig_themes, use_container_width=True)
     
     with col2:
-        # Sentiment distribution
-        sentiment_data = {
-            'Sentiment': ['Positive', 'Neutral', 'Negative'],
-            'Count': [12, 8, 3]
-        }
-        fig_sentiment = px.pie(sentiment_data, names='Sentiment', values='Count',
-                              title="Sentiment Distribution")
-        st.plotly_chart(fig_sentiment, use_container_width=True)
-    
-    # Pain points frequency (as requested)
+        # Engagement by persona
+        from collections import Counter
+        counts = Counter()
+        for t in qa_turns:
+            try:
+                pid = getattr(t, 'persona_id', None) or t.get('persona_id')
+                counts[pid] += 1
+            except Exception:
+                continue
+        df_eng = pd.DataFrame({
+            'Persona': list(counts.keys()),
+            'Responses': list(counts.values())
+        })
+        fig_eng = px.bar(df_eng, x='Persona', y='Responses', title="Engagement by Persona")
+        st.plotly_chart(fig_eng, use_container_width=True)
+
+    # Pain points from tags subset (example filtering)
     st.subheader("😤 Pain Points Frequency")
-    pain_points = {
-        'Pain Point': ['Time Management', 'Cost Concerns', 'Complex Setup', 'Poor Support', 'Limited Features'],
-        'Mentions': [15, 12, 8, 6, 4]
-    }
-    fig_pain = px.bar(pain_points, x='Pain Point', y='Mentions', 
-                     title="Pain Points Mentioned by Participants")
+    pain_tags = ['time_management', 'pricing', 'complexity', 'support', 'feature_gap']
+    pain = []
+    for tag in pain_tags:
+        pain.append({'Pain Point': tag.replace('_',' ').title(), 'Mentions': unweighted_counts.get(tag, 0)})
+    fig_pain = px.bar(pd.DataFrame(pain), x='Pain Point', y='Mentions', title="Pain Point Mentions (unweighted)")
     st.plotly_chart(fig_pain, use_container_width=True)
 
 def show_insights(results: Dict):
@@ -614,6 +951,28 @@ def show_raw_data(results: Dict):
     # Show results structure
     st.json(results)
 
+def show_guardrails(results: Dict):
+    """Display guardrail events from the run."""
+    st.subheader("🛡️ Guardrail Events")
+    events = results.get('guardrail_events', [])
+    if not events:
+        st.info("No guardrail events recorded.")
+        return
+    df = pd.DataFrame(events)
+    st.dataframe(df, use_container_width=True)
+    # Aggregates
+    st.markdown("### Summary")
+    by_type = df.groupby('type').size().reset_index(name='count') if 'type' in df.columns else pd.DataFrame()
+    by_sev = df.groupby('severity').size().reset_index(name='count') if 'severity' in df.columns else pd.DataFrame()
+    col1, col2 = st.columns(2)
+    with col1:
+        if not by_type.empty:
+            st.bar_chart(by_type.set_index('type'))
+    with col2:
+        if not by_sev.empty:
+            st.bar_chart(by_sev.set_index('severity'))
+
+
 def show_live_transcripts():
     """Live transcript viewer (placeholder)."""
     st.header("📺 Live Transcripts")
@@ -632,58 +991,63 @@ def show_live_transcripts():
         st.write("Live updates would appear here during session...")
 
 def show_export_hub():
-    """Export hub for downloading results."""
+    """Export hub for generating and downloading results."""
     st.header("💾 Export Hub")
-    st.markdown("Download session results in various formats")
-    
+    st.markdown("Choose what to generate. Nothing is created until you click Generate.")
+
     if 'session_results' not in st.session_state or not st.session_state.session_results:
         st.info("No session results available for export.")
         return
-    
+
     results = st.session_state.session_results
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("Available Exports")
-        
-        export_options = {
-            "📄 JSONL Data": "Complete session data in JSONL format",
-            "📊 CSV Export": "Tabular data for analysis",
-            "📋 Summary Report": "Executive summary in Markdown",
-            "📈 Detailed Analysis": "Comprehensive findings report",
-            "🎨 Charts Package": "All visualizations as PNG files"
-        }
-        
-        for export_type, description in export_options.items():
-            st.write(f"**{export_type}**")
-            st.write(description)
-            if st.button(f"Download {export_type.split()[1]}", key=export_type):
-                download_export(export_type)
-            st.divider()
-    
-    with col2:
-        st.subheader("Export Preview")
-        
-        # Show sample export content
-        st.code("""
-# Session Summary Report
+    project: EnhancedProject = st.session_state.get('current_project')
 
-## Study: Consumer Research Study
-**Date:** 2025-01-12
-**Participants:** 8
-**Duration:** 65 minutes
+    with st.form("export_form"):
+        st.subheader("Select formats and datasets")
+        formats = st.multiselect(
+            "Formats",
+            ["json", "csv", "yaml", "md"],
+            default=["json", "csv", "md"],
+            help="PDF not included in demo; MD is supported."
+        )
+        datasets = st.multiselect(
+            "Datasets",
+            ["messages", "personas", "insights", "guardrails"],
+            default=["messages", "personas", "insights"]
+        )
+        include_package = st.checkbox("Create comprehensive package (weighted JSON, CSV, agent dashboard, executive summary)", value=True)
+        generate = st.form_submit_button("🚀 Generate")
 
-## Key Findings
-1. **Pricing Sensitivity**: 75% of participants mentioned cost as primary concern
-2. **Feature Gaps**: Integration capabilities most requested feature
-3. **User Experience**: Onboarding process needs simplification
+    if generate:
+        try:
+            # Adapt session_results to Session/Project-like structures if needed
+            from models.session import Session, SessionResponse
+            from export.enhanced_exporter import EnhancedDataExporter
+            from reports.markdown_generator import MarkdownReportGenerator, ReportData
 
-## Recommendations
-1. Implement tiered pricing strategy
-2. Prioritize API integrations
-3. Redesign user onboarding flow
-        """, language="markdown")
+            # Create minimal Session object from stored files if available
+            # For demo: reuse saved paths in results['storage_results']
+            exporter = EnhancedDataExporter()
+
+            # Prepare agent_results value if present in pipeline (optional)
+            agent_results = results.get('agent_results', {})
+
+            # Create markdown reports
+            report_gen = MarkdownReportGenerator()
+
+            # In a full implementation we'd reconstruct Session/EnhancedProject fully.
+            # Here we create a package directory and drop what we can using EnhancedDataExporter.
+            package_dir = exporter.export_comprehensive_package(
+                session=Session(id=results['session_id'], project_id=project.id, name=project.name),
+                project=project,
+                agent_results=agent_results,
+                package_name=f"web_export_{results['session_id']}",
+                guardrails=results.get('guardrail_events')
+            )
+            st.success(f"✅ Comprehensive package created: {package_dir}")
+            st.write("Open the folder to view weighted_analysis.json, weighted_responses.csv, agent_insights_dashboard.json, executive_summary.md, and manifest.json.")
+        except Exception as e:
+            st.error(f"Export failed: {e}")
 
 def show_templates_page():
     """Templates and examples page."""
@@ -883,16 +1247,40 @@ def convert_uploaded_personas_to_format(personas_df: pd.DataFrame) -> List[Dict]
             'persona_id': persona_id,
             'name': row['name'],
             'role': row.get('occupation', row.get('role', 'Professional')),
-            'age': int(row['age']),
+            'age': int(row['age']) if pd.notna(row.get('age', None)) else 35,
             'occupation': row.get('occupation', 'Professional'),
             'background': row.get('background', f"Professional with experience in their field"),
             'gender': row.get('gender', 'Not specified'),
             'location': row.get('location', 'Not specified'),
             'personality_traits': personality_traits or ['analytical', 'detail-oriented'],
             'interests': interests or ['professional development'],
-            'pain_points': [f"Challenges related to {row.get('occupation', 'work')}"],
-            'goals': [f"Success in {row.get('occupation', 'their role')}"],
-            'communication_style': 'Professional and direct'
+            # Extended dimensions (optional)
+            'education': row.get('education', ''),
+            'relationship_family': row.get('relationship_family', ''),
+            'annual_income': row.get('annual_income', ''),
+            'community_involvement': row.get('community_involvement', [] if isinstance(row.get('community_involvement', None), list) else []),
+            'values': row.get('values', [] if isinstance(row.get('values', None), list) else values),
+            'free_time_activities': row.get('free_time_activities', ''),
+            'lifestyle_description': row.get('lifestyle_description', ''),
+            'major_struggles': row.get('major_struggles', [] if isinstance(row.get('major_struggles', None), list) else []),
+            'obstacles': row.get('obstacles', [] if isinstance(row.get('obstacles', None), list) else []),
+            'why_problems_exist': row.get('why_problems_exist', ''),
+            'deep_fears_business': row.get('deep_fears_business', [] if isinstance(row.get('deep_fears_business', None), list) else []),
+            'deep_fears_personal': row.get('deep_fears_personal', [] if isinstance(row.get('deep_fears_personal', None), list) else []),
+            'previous_software_tried': row.get('previous_software_tried', [] if isinstance(row.get('previous_software_tried', None), list) else []),
+            'why_software_failed': row.get('why_software_failed', ''),
+            'tangible_business_results': row.get('tangible_business_results', [] if isinstance(row.get('tangible_business_results', None), list) else []),
+            'tangible_personal_results': row.get('tangible_personal_results', [] if isinstance(row.get('tangible_personal_results', None), list) else []),
+            'emotional_transformations': row.get('emotional_transformations', [] if isinstance(row.get('emotional_transformations', None), list) else []),
+            'if_only_soundbites': row.get('if_only_soundbites', [] if isinstance(row.get('if_only_soundbites', None), list) else []),
+            'desired_reputation': row.get('desired_reputation', [] if isinstance(row.get('desired_reputation', None), list) else []),
+            'success_statements_from_others': row.get('success_statements_from_others', [] if isinstance(row.get('success_statements_from_others', None), list) else []),
+            'things_to_avoid': row.get('things_to_avoid', [] if isinstance(row.get('things_to_avoid', None), list) else []),
+            'unwanted_quotes': row.get('unwanted_quotes', [] if isinstance(row.get('unwanted_quotes', None), list) else []),
+            'big_picture_aspirations': row.get('big_picture_aspirations', ''),
+            'persona_summary': row.get('persona_summary', row.get('background', '')),
+            'ideal_day_scenario': row.get('ideal_day_scenario', ''),
+            'communication_style': row.get('communication_style','Professional and direct')
         }
         
         personas.append(persona)

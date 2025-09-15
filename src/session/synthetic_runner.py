@@ -579,8 +579,29 @@ class DataVisualizationDesigner:
         }
 
 
+class PersonaWeight:
+    """Represents a persona's weight and metadata for analysis."""
+    
+    def __init__(self, persona_id: str, weight: float = 1.0, rank: Optional[int] = None, 
+                 is_primary_icp: bool = False, notes: str = ""):
+        self.persona_id = persona_id
+        self.weight = max(0.0, min(5.0, weight))  # Constrain to 0-5 range
+        self.rank = rank
+        self.is_primary_icp = is_primary_icp
+        self.notes = notes
+        
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'persona_id': self.persona_id,
+            'weight': self.weight,
+            'rank': self.rank,
+            'is_primary_icp': self.is_primary_icp,
+            'notes': self.notes
+        }
+
+
 class SyntheticSessionRunner:
-    """Orchestrates the complete synthetic focus group session."""
+    """Orchestrates the complete synthetic focus group session with persona weighting."""
     
     def __init__(self, ai_client: OpenAIClient = None):
         self.ai_client = ai_client or create_openai_client()
@@ -588,16 +609,98 @@ class SyntheticSessionRunner:
         self.analyst = ResearchAnalyst(ai_client)
         self.viz_designer = DataVisualizationDesigner()
         self.storage = QAStorage()
+        self.persona_weights: Dict[str, PersonaWeight] = {}
+        self.weighted_analysis_enabled = True
+        self.primary_icp_persona_id: Optional[str] = None
+        # New: guardrails
+        from ai.agents import SafetyAgent, ConsistencyAgent
+        self.safety_agent = SafetyAgent()
+        self.consistency_agent = ConsistencyAgent()
+        self.guardrail_events: List[Dict[str, Any]] = []
+    """Orchestrates the complete synthetic focus group session with persona weighting."""
+    
+    def __init__(self, ai_client: OpenAIClient = None):
+        self.ai_client = ai_client or create_openai_client()
+        self.facilitator = SyntheticFacilitator(ai_client)
+        self.analyst = ResearchAnalyst(ai_client)
+        self.viz_designer = DataVisualizationDesigner()
+        self.storage = QAStorage()
+        self.persona_weights: Dict[str, PersonaWeight] = {}
+        self.weighted_analysis_enabled = True
+        self.primary_icp_persona_id: Optional[str] = None
+        
+    def set_persona_weight(self, persona_id: str, weight: float, rank: Optional[int] = None,
+                          is_primary_icp: bool = False, notes: str = "") -> None:
+        """Set weight and metadata for a persona."""
+        self.persona_weights[persona_id] = PersonaWeight(
+            persona_id=persona_id,
+            weight=weight,
+            rank=rank,
+            is_primary_icp=is_primary_icp,
+            notes=notes
+        )
+        
+        if is_primary_icp:
+            self.primary_icp_persona_id = persona_id
+    
+    def get_analysis_weights(self) -> Dict[str, float]:
+        """Get normalized weights for analysis."""
+        if not self.weighted_analysis_enabled or not self.persona_weights:
+            # Return equal weights if weighting is disabled or no weights set
+            return {pid: 1.0 for pid in self.persona_weights.keys()}
+        
+        # Normalize weights so they sum to the number of personas
+        weights = {pid: pw.weight for pid, pw in self.persona_weights.items()}
+        total_weight = sum(weights.values())
+        
+        if total_weight == 0:
+            return {pid: 1.0 for pid in weights.keys()}
+        
+        num_personas = len(weights)
+        normalized = {pid: (w / total_weight) * num_personas for pid, w in weights.items()}
+        return normalized
+    
+    def get_persona_weight(self, persona_id: str) -> Optional[PersonaWeight]:
+        """Get persona weight object by ID."""
+        return self.persona_weights.get(persona_id)
+    
+    def get_ranked_personas(self) -> List[PersonaWeight]:
+        """Get personas sorted by rank and weight."""
+        personas = list(self.persona_weights.values())
+        # Sort by rank first (None ranks go to end), then by weight descending
+        return sorted(personas, key=lambda p: (p.rank if p.rank is not None else 999, -p.weight))
         
     def run_session(self, study_id: str, topic: str, personas: List[Dict[str, Any]], 
-                   num_questions: int = 3, session_id: str = None) -> Dict[str, Any]:
+                   num_questions: int = 3, session_id: str = None, 
+                   persona_weights: Optional[Dict[str, Dict[str, Any]]] = None) -> Dict[str, Any]:
         """Run a complete synthetic focus group session."""
         
         session_id = session_id or f"session_{uuid.uuid4().hex[:8]}"
         
+        # Initialize persona weights if provided
+        if persona_weights:
+            for persona_id, weight_config in persona_weights.items():
+                self.set_persona_weight(
+                    persona_id=persona_id,
+                    weight=weight_config.get('weight', 1.0),
+                    rank=weight_config.get('rank'),
+                    is_primary_icp=weight_config.get('is_primary_icp', False),
+                    notes=weight_config.get('notes', "")
+                )
+        else:
+            # Set default equal weights for all personas
+            for persona_data in personas:
+                persona_id = persona_data.get('id', f"persona_{uuid.uuid4().hex[:6]}")
+                self.set_persona_weight(persona_id, weight=1.0)
+        
         print(f"🚀 Starting synthetic session: {session_id}")
         print(f"📋 Topic: {topic}")
         print(f"👥 Participants: {len(personas)}")
+        if self.weighted_analysis_enabled:
+            weights = self.get_analysis_weights()
+            print(f"⚖️  Persona weights: {[(pid, f'{w:.2f}') for pid, w in weights.items()]}")
+            if self.primary_icp_persona_id:
+                print(f"🎯 Primary ICP: {self.primary_icp_persona_id}")
         
         # Initialize synthetic personas
         synthetic_personas = []
@@ -649,6 +752,17 @@ class SyntheticSessionRunner:
                     qa_turn.follow_up_question = follow_up_q
                     qa_turn.follow_up_answer = follow_up_data['answer']
                 
+                # Guardrails checks
+                try:
+                    events = self.safety_agent.check_turn(question, response_data['answer'])
+                    if events:
+                        self.guardrail_events.extend(events)
+                    drift = self.consistency_agent.check_drift(persona.persona_id, response_data['answer'])
+                    if drift:
+                        self.guardrail_events.append(drift)
+                except Exception:
+                    pass
+                
                 qa_turns.append(qa_turn)
         
         print(f"\n📊 Session complete! Generated {len(qa_turns)} Q/A turns")
@@ -684,7 +798,15 @@ class SyntheticSessionRunner:
             'analysis': analysis,
             'visualizations': visualizations,
             'storage_results': storage_results,
-            'validation_results': validation_results,
+'validation_results': validation_results,
+            'guardrail_events': self.guardrail_events,
+            'weighting_info': {
+                'weighted_analysis_enabled': self.weighted_analysis_enabled,
+                'persona_weights': {pid: pw.to_dict() for pid, pw in self.persona_weights.items()},
+                'analysis_weights': self.get_analysis_weights(),
+                'primary_icp_persona_id': self.primary_icp_persona_id,
+                'ranked_personas': [pw.to_dict() for pw in self.get_ranked_personas()]
+            },
             'summary': {
                 'total_turns': len(qa_turns),
                 'personas': len(synthetic_personas),
@@ -693,7 +815,9 @@ class SyntheticSessionRunner:
                 'themes_identified': len(analysis.get('themes', [])),
                 'insights_generated': len(analysis.get('insights', [])),
                 'files_created': len(storage_results),
-                'schema_errors': validation_results['total_errors']
+                'schema_errors': validation_results['total_errors'],
+                'weighted_analysis': self.weighted_analysis_enabled,
+                'primary_icp_set': self.primary_icp_persona_id is not None
             }
         }
 
@@ -726,3 +850,27 @@ def create_sample_personas() -> List[Dict[str, Any]]:
             'goals': ['Efficient client management', 'Professional reporting', 'Stable income growth']
         }
     ]
+
+
+def create_sample_persona_weights() -> Dict[str, Dict[str, Any]]:
+    """Create sample persona weights for testing weighted analysis."""
+    return {
+        'sarah_small_business': {
+            'weight': 3.0,  # High priority - target customer
+            'rank': 1,
+            'is_primary_icp': True,
+            'notes': 'Primary ICP - small business owner with growth ambitions'
+        },
+        'mike_marketing_mgr': {
+            'weight': 2.0,  # Medium-high priority
+            'rank': 2,
+            'is_primary_icp': False,
+            'notes': 'Secondary target - enterprise marketing managers'
+        },
+        'jenny_freelancer': {
+            'weight': 1.5,  # Medium priority  
+            'rank': 3,
+            'is_primary_icp': False,
+            'notes': 'Lower priority segment - freelancers with budget constraints'
+        }
+    }

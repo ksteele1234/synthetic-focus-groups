@@ -15,6 +15,14 @@ from models.enhanced_project import EnhancedProject, PersonaWeight
 class EnhancedDataExporter:
     """Enhanced exporter with weighted analysis and agent insights."""
     
+    SCHEMA_VERSION = "1.0.0"
+    
+    def __init__(self, export_path: str = "data/exports"):
+        """Initialize enhanced data exporter."""
+        self.export_path = export_path
+        os.makedirs(export_path, exist_ok=True)
+    """Enhanced exporter with weighted analysis and agent insights."""
+    
     def __init__(self, export_path: str = "data/exports"):
         """Initialize enhanced data exporter."""
         self.export_path = export_path
@@ -63,11 +71,16 @@ class EnhancedDataExporter:
                     'response_tiers': response_tiers,
                     'icp_focus_analysis': icp_analysis
                 },
+                'unweighted_analysis': {
+                    'overall_sentiment': self._calculate_unweighted_sentiment(session),
+                    'persona_contributions': self._calculate_unweighted_contributions(session)
+                },
                 'agent_insights': agent_results or {},
                 'persona_contributions': self._calculate_persona_contributions(session, weights),
                 'recommendations': self._generate_weighted_recommendations(session, project, agent_results)
             }
             
+            export_data['schema_version'] = self.SCHEMA_VERSION
             with open(filepath, 'w', encoding='utf-8') as f:
                 json.dump(export_data, f, indent=2, ensure_ascii=False)
             
@@ -124,6 +137,7 @@ class EnhancedDataExporter:
                 }
             }
             
+            export_data['schema_version'] = self.SCHEMA_VERSION
             with open(filepath, 'w', encoding='utf-8') as f:
                 json.dump(export_data, f, indent=2, ensure_ascii=False)
             
@@ -245,7 +259,8 @@ class EnhancedDataExporter:
     
     def export_comprehensive_package(self, session: Session, project: EnhancedProject, 
                                    agent_results: Dict[str, Any] = None,
-                                   package_name: str = None) -> str:
+                                   package_name: str = None,
+                                   guardrails: List[Dict[str, Any]] = None) -> str:
         """Create comprehensive export package with all enhanced features."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         package_name = package_name or f"enhanced_analysis_{session.id}_{timestamp}"
@@ -256,11 +271,24 @@ class EnhancedDataExporter:
             # Export all enhanced formats
             files_created = {}
             
-            # Weighted analysis
+            # Weighted + unweighted analysis
             files_created['weighted_analysis'] = self.export_weighted_session_analysis(
                 session, project, agent_results, 
                 os.path.join(package_dir, "weighted_analysis.json")
             )
+            # Also emit an explicit unweighted file for clarity
+            unweighted_path = os.path.join(package_dir, "unweighted_analysis.json")
+            with open(files_created['weighted_analysis'], 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            unweighted_payload = {
+                'schema_version': self.SCHEMA_VERSION,
+                'session_id': session.id,
+                'project_id': project.id,
+                'unweighted_analysis': data.get('unweighted_analysis', {})
+            }
+            with open(unweighted_path, 'w', encoding='utf-8') as f:
+                json.dump(unweighted_payload, f, indent=2, ensure_ascii=False)
+            files_created['unweighted_analysis'] = unweighted_path
             
             # ICP-focused report (if ICP exists)
             if project.primary_icp_persona_id:
@@ -282,6 +310,20 @@ class EnhancedDataExporter:
                 os.path.join(package_dir, "weighted_responses.csv")
             )
             
+            # Guardrails export if provided
+            if guardrails:
+                files_created['guardrails_csv'] = self.export_guardrails_csv(
+                    guardrails, os.path.join(package_dir, "guardrails.csv")
+                )
+            
+            # YAML bundle
+            try:
+                files_created['yaml_bundle'] = self.export_yaml_bundle(
+                    session, project, os.path.join(package_dir, "bundle.yaml")
+                )
+            except Exception:
+                pass
+            
             # Project configuration export
             files_created['project_config'] = self._export_project_config(
                 project, os.path.join(package_dir, "project_configuration.json")
@@ -295,6 +337,7 @@ class EnhancedDataExporter:
             
             # Package manifest
             manifest = {
+                'schema_version': self.SCHEMA_VERSION,
                 'package_info': {
                     'name': package_name,
                     'created_at': datetime.now().isoformat(),
@@ -319,8 +362,14 @@ class EnhancedDataExporter:
                 }
             }
             
-            with open(os.path.join(package_dir, "manifest.json"), 'w', encoding='utf-8') as f:
+            manifest_path = os.path.join(package_dir, "manifest.json")
+            with open(manifest_path, 'w', encoding='utf-8') as f:
                 json.dump(manifest, f, indent=2, ensure_ascii=False)
+            
+            # Checksums
+            checksums = {name: self._checksum(path) for name, path in files_created.items() if isinstance(path, str)}
+            with open(os.path.join(package_dir, "checksums.json"), 'w', encoding='utf-8') as f:
+                json.dump(checksums, f, indent=2, ensure_ascii=False)
             
             return package_dir
             
@@ -356,6 +405,19 @@ class EnhancedDataExporter:
             'total_weight_applied': total_weight
         }
     
+    def _calculate_unweighted_sentiment(self, session: Session) -> Dict[str, Any]:
+        """Calculate unweighted sentiment analysis."""
+        participant_responses = [r for r in session.responses if r.speaker_type == 'participant']
+        scores = [r.sentiment_score for r in participant_responses if r.sentiment_score is not None]
+        if not scores:
+            return {'overall': 'neutral', 'score': 0.5, 'count': 0}
+        avg = sum(scores) / len(scores)
+        return {
+            'overall': 'positive' if avg > 0.1 else 'negative' if avg < -0.1 else 'neutral',
+            'score': avg,
+            'count': len(scores)
+        }
+
     def _analyze_icp_responses(self, session: Session, icp_persona_id: str) -> Dict[str, Any]:
         """Analyze responses specifically from the ICP persona."""
         icp_responses = session.get_responses_by_participant(icp_persona_id)
@@ -415,6 +477,21 @@ class EnhancedDataExporter:
         
         return contributions
     
+    def _calculate_unweighted_contributions(self, session: Session) -> Dict[str, Any]:
+        """Unweighted persona contributions for baseline comparison."""
+        contributions = {}
+        participants = [r.speaker_id for r in session.responses if r.speaker_type == 'participant']
+        for pid in set(participants):
+            responses = session.get_responses_by_participant(pid)
+            contributions[pid] = {
+                'weight': 1.0,
+                'response_count': len(responses),
+                'total_content_length': sum(len(r.content) for r in responses),
+                'unique_themes': len(set([theme for r in responses for theme in r.key_themes])),
+                'avg_sentiment': sum(r.sentiment_score for r in responses if r.sentiment_score) / max(len([r for r in responses if r.sentiment_score]), 1)
+            }
+        return contributions
+
     def _generate_weighted_recommendations(self, session: Session, project: EnhancedProject, 
                                          agent_results: Dict[str, Any]) -> List[str]:
         """Generate recommendations based on weighted analysis."""
@@ -591,6 +668,45 @@ class EnhancedDataExporter:
         
         return suggestions[:3]
     
+    def export_guardrails_csv(self, guardrails: List[Dict[str, Any]], filepath: str) -> str:
+        """Export guardrail events to CSV."""
+        import csv
+        if not guardrails:
+            return filepath
+        fieldnames = sorted({k for ev in guardrails for k in ev.keys()})
+        with open(filepath, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for ev in guardrails:
+                writer.writerow(ev)
+        return filepath
+
+    def export_yaml_bundle(self, session: Session, project: EnhancedProject, filepath: str) -> str:
+        """Export a simple YAML bundle with schema_version, study and personas."""
+        try:
+            import yaml
+        except ImportError:
+            raise Exception("PyYAML not installed. Install with: pip install pyyaml")
+        bundle = {
+            'schema_version': self.SCHEMA_VERSION,
+            'study': {
+                'id': project.id,
+                'name': project.name,
+                'research_topic': project.research_topic,
+                'weighted_analysis_enabled': project.weighted_analysis_enabled,
+                'primary_icp': project.primary_icp_persona_id,
+                'persona_weights': [pw.__dict__ for pw in project.persona_weights],
+            },
+            'session': {
+                'id': session.id,
+                'project_id': session.project_id,
+                'name': session.name,
+            }
+        }
+        with open(filepath, 'w', encoding='utf-8') as f:
+            yaml.safe_dump(bundle, f, sort_keys=False, allow_unicode=True)
+        return filepath
+
     def _calculate_response_importance(self, response: SessionResponse, weights: Dict[str, float]) -> float:
         """Calculate weighted importance score for a response."""
         base_score = len(response.content) / 100  # Base on content length
@@ -601,8 +717,10 @@ class EnhancedDataExporter:
     
     def _export_project_config(self, project: EnhancedProject, filepath: str) -> str:
         """Export project configuration."""
+        data = project.to_dict()
+        data['schema_version'] = self.SCHEMA_VERSION
         with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(project.to_dict(), f, indent=2, ensure_ascii=False)
+            json.dump(data, f, indent=2, ensure_ascii=False)
         return filepath
     
     def _create_executive_summary_file(self, session: Session, project: EnhancedProject, 
@@ -640,6 +758,17 @@ class EnhancedDataExporter:
             f.write(summary_content)
         
         return filepath
+    
+    def _checksum(self, path: str) -> Optional[str]:
+        try:
+            import hashlib
+            h = hashlib.sha256()
+            with open(path, 'rb') as f:
+                for chunk in iter(lambda: f.read(8192), b''):
+                    h.update(chunk)
+            return h.hexdigest()
+        except Exception:
+            return None
     
     def _extract_decision_factors(self, responses: List[SessionResponse]) -> List[str]:
         """Extract decision factors mentioned in responses."""

@@ -1,5 +1,5 @@
 import os
-from .backend_pgvector import PgVector
+from src.vector.backend_pgvector import PgVector
 
 def get_backend():
     provider = os.getenv("VECTOR_PROVIDER", "pgvector").lower()

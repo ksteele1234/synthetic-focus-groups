@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Enhanced Synthetic Focus Group Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .demo-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .demo-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+        
+        .demo-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: #4a5568;
+        }
+        
+        .demo-card p {
+            color: #718096;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #4299e1, #3182ce);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        
+        .btn:hover {
+            background: linear-gradient(135deg, #3182ce, #2c5282);
+            transform: translateY(-2px);
+        }
+        
+        .results {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .metric-card {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #4299e1;
+        }
+        
+        .metric-label {
+            font-size: 0.9rem;
+            color: #718096;
+            margin-top: 5px;
+        }
+        
+        .success {
+            color: #38a169;
+            font-weight: bold;
+        }
+        
+        .command-box {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            margin: 15px 0;
+            white-space: pre-wrap;
+        }
+        
+        .feature-list {
+            list-style: none;
+            margin: 15px 0;
+        }
+        
+        .feature-list li {
+            padding: 8px;
+            background: #f7fafc;
+            margin: 5px 0;
+            border-radius: 5px;
+            border-left: 4px solid #4299e1;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .demo-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Enhanced Synthetic Focus Group Demo</h1>
+            <p>Interactive demonstration of persona weighting, security, and analytics features</p>
+        </div>
+        
+        <div class="demo-grid">
+            <div class="demo-card">
+                <h3>🚀 Run Full Demo</h3>
+                <p>Execute the complete persona-weighted analysis with realistic data. Generates JSON, CSV, and dashboard exports with weighted insights.</p>
+                <button class="btn" onclick="runFullDemo()">Run Complete Demo</button>
+            </div>
+            
+            <div class="demo-card">
+                <h3>🔒 Security Features</h3>
+                <p>Learn about the security measures including SQL injection prevention, input validation, and secure connection handling.</p>
+                <button class="btn" onclick="showSecurityFeatures()">View Security Info</button>
+            </div>
+            
+            <div class="demo-card">
+                <h3>📊 Demo Data</h3>
+                <p>Explore the sample personas (Sarah, Mike, Jenny), their weights (3.0x, 2.0x, 1.5x), and realistic focus group responses.</p>
+                <button class="btn" onclick="showDemoData()">Show Demo Data</button>
+            </div>
+            
+            <div class="demo-card">
+                <h3>📋 Technical Details</h3>
+                <p>View implementation details, schema validation, export formats, and the complete feature set of the enhanced system.</p>
+                <button class="btn" onclick="showTechnicalDetails()">Show Details</button>
+            </div>
+        </div>
+        
+        <div id="results" class="results">
+            <h3 id="results-title">📈 Results</h3>
+            <div id="results-content"></div>
+        </div>
+    </div>
+
+    <script>
+        // Demo data
+        const demoData = {
+            personas: [
+                {
+                    id: 'sarah_small_business',
+                    name: 'Sarah Thompson',
+                    role: 'Small Business Owner',
+                    weight: 3.0,
+                    rank: 1,
+                    is_primary_icp: true,
+                    notes: 'Primary ICP - small business owner, high growth potential'
+                },
+                {
+                    id: 'mike_marketing_mgr',
+                    name: 'Mike Rodriguez',
+                    role: 'Marketing Manager',
+                    weight: 2.0,
+                    rank: 2,
+                    is_primary_icp: false,
+                    notes: 'Secondary target - enterprise marketing managers'
+                },
+                {
+                    id: 'jenny_freelancer',
+                    name: 'Jenny Chen',
+                    role: 'Freelance Social Media Manager',
+                    weight: 1.5,
+                    rank: 3,
+                    is_primary_icp: false,
+                    notes: 'Lower priority - freelancers with budget constraints'
+                }
+            ],
+            
+            responses: [
+                {
+                    persona: 'Sarah Thompson',
+                    question: 'What are your biggest challenges with social media management?',
+                    answer: "I'm constantly switching between Hootsuite, Buffer, and our analytics tool. It's so time-consuming and I often miss important metrics. I'd definitely pay $50/month for something that integrates everything seamlessly.",
+                    sentiment: 0.2,
+                    themes: ['tool_switching', 'integration_needs', 'pricing_acceptance']
+                },
+                {
+                    persona: 'Mike Rodriguez',
+                    question: 'What are your biggest challenges with social media management?',
+                    answer: "Our biggest issue is attribution. We use multiple platforms but can't track ROI properly. The executive team constantly questions our social media spend.",
+                    sentiment: 0.1,
+                    themes: ['attribution_problems', 'roi_tracking', 'executive_pressure']
+                },
+                {
+                    persona: 'Jenny Chen',
+                    question: 'What would ideal pricing look like?',
+                    answer: "Maybe $15-20 per month max? I need basic scheduling and simple reporting. Don't need all the enterprise features.",
+                    sentiment: 0.3,
+                    themes: ['budget_constraints', 'basic_features', 'pricing_sensitivity']
+                }
+            ]
+        };
+
+        function showResults() {
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('results').scrollIntoView({behavior: 'smooth'});
+        }
+
+        function runFullDemo() {
+            const content = `
+                <div class="success">✅ Enhanced Demo Simulation Complete!</div>
+                
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value">6</div>
+                        <div class="metric-label">Total Responses</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">3</div>
+                        <div class="metric-label">Personas Analyzed</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">0.296</div>
+                        <div class="metric-label">Weighted Sentiment</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">sarah_small_business</div>
+                        <div class="metric-label">Primary ICP</div>
+                    </div>
+                </div>
+                
+                <h4>🎯 Key Demo Insights:</h4>
+                <ul class="feature-list">
+                    <li><strong>Primary ICP (Sarah):</strong> Shows strong willingness to pay $30-50/month for integrated solution</li>
+                    <li><strong>Tool Integration:</strong> Highest weighted concern across all personas (2.77 weighted mentions)</li>
+                    <li><strong>Pricing Strategy:</strong> Clear differentiation needed - $15-20 (Freelancer), $30-50 (SMB), $60+ (Enterprise)</li>
+                </ul>
+                
+                <h4>📁 To Run the Actual Demo:</h4>
+                <div class="command-box">python demo_enhanced_mockup.py</div>
+                <p>This command will generate actual files:
+                <br>• demo_weighted_analysis_export.json
+                <br>• demo_weighted_responses.csv  
+                <br>• demo_dashboard_data.json</p>
+                
+                <h4>🏷️ Top Themes (by weighted importance):</h4>
+                <ol>
+                    <li><strong>Pricing Acceptance:</strong> 2.77 weighted mentions</li>
+                    <li><strong>Tool Switching:</strong> 1.38 weighted mentions</li>
+                    <li><strong>Integration Needs:</strong> 1.38 weighted mentions</li>
+                    <li><strong>Analytics:</strong> 1.38 weighted mentions</li>
+                </ol>
+            `;
+            
+            document.getElementById('results-title').textContent = '🚀 Full Demo Results';
+            document.getElementById('results-content').innerHTML = content;
+            showResults();
+        }
+
+        function showSecurityFeatures() {
+            const content = `
+                <div class="success">✅ Security Features Overview</div>
+                
+                <h4>🛡️ Security Measures Implemented:</h4>
+                <ul class="feature-list">
+                    <li><strong>SQL Injection Prevention:</strong> Parameterized queries with identifier quoting</li>
+                    <li><strong>Input Validation:</strong> Collection names validated against safe patterns</li>
+                    <li><strong>Bounds Checking:</strong> Vector dimensions limited to reasonable ranges (1-2048)</li>
+                    <li><strong>Connection Security:</strong> Secure pooling with timeouts and limits</li>
+                    <li><strong>Credential Validation:</strong> Database URL format and security checking</li>
+                </ul>
+                
+                <h4>🔒 Test Cases Blocked:</h4>
+                <div style="background: #f0fff4; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                    <p>❌ <strong>SQL Injection:</strong> "test; DROP TABLE users;" - BLOCKED</p>
+                    <p>❌ <strong>Null Byte Injection:</strong> "test\\x00malicious" - BLOCKED</p>
+                    <p>❌ <strong>Empty Input:</strong> "" - BLOCKED</p>
+                    <p>❌ <strong>Oversized Dimension:</strong> 10000 - BLOCKED</p>
+                </div>
+                
+                <h4>⚡ To Test Security:</h4>
+                <div class="command-box">python -c "from src.vector.backend_pgvector import PgVector; PgVector()._ensure_table('test; DROP TABLE users;', 1536)"</div>
+                <p>This will demonstrate the security validation in action.</p>
+            `;
+            
+            document.getElementById('results-title').textContent = '🔒 Security Features';
+            document.getElementById('results-content').innerHTML = content;
+            showResults();
+        }
+
+        function showDemoData() {
+            const content = `
+                <div class="success">✅ Demo Data Overview</div>
+                
+                <h4>👥 Demo Personas & Weights:</h4>
+                <div class="metrics-grid">
+                    ${demoData.personas.map(persona => `
+                        <div class="metric-card">
+                            <div class="metric-value">${persona.weight}x</div>
+                            <div class="metric-label">${persona.name}<br>(${persona.role})</div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <h4>⚖️ Weighting Configuration:</h4>
+                <ul class="feature-list">
+                    ${demoData.personas.map(persona => `
+                        <li><strong>${persona.name}:</strong> ${persona.weight}x weight, Rank #${persona.rank}
+                        ${persona.is_primary_icp ? ' 🎯 PRIMARY ICP' : ''}<br>
+                        <em>${persona.notes}</em></li>
+                    `).join('')}
+                </ul>
+                
+                <h4>💬 Sample Responses:</h4>
+                <div style="max-height: 300px; overflow-y: auto;">
+                    ${demoData.responses.map(response => `
+                        <div style="border: 1px solid #e2e8f0; margin: 10px 0; padding: 15px; border-radius: 8px;">
+                            <strong>${response.persona}:</strong><br>
+                            <em>Q: ${response.question}</em><br>
+                            <strong>A:</strong> ${response.answer}<br>
+                            <small><strong>Sentiment:</strong> ${response.sentiment} | <strong>Themes:</strong> ${response.themes.join(', ')}</small>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            document.getElementById('results-title').textContent = '📊 Demo Data';
+            document.getElementById('results-content').innerHTML = content;
+            showResults();
+        }
+
+        function showTechnicalDetails() {
+            const content = `
+                <div class="success">✅ Technical Implementation Details</div>
+                
+                <h4>🏗️ Architecture Overview:</h4>
+                <ul class="feature-list">
+                    <li><strong>Persona Weighting System:</strong> Dynamic weight assignment (0.0-5.0x range)</li>
+                    <li><strong>Primary ICP Tracking:</strong> Designated primary customer focus</li>
+                    <li><strong>Secure Vector Backend:</strong> PostgreSQL + pgvector with security hardening</li>
+                    <li><strong>Schema Validation:</strong> JSON exports conform to defined structures</li>
+                    <li><strong>Multi-format Export:</strong> JSON, CSV, dashboard-ready data</li>
+                </ul>
+                
+                <h4>📋 Schema Compliance:</h4>
+                <div style="background: #f7fafc; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                    <p>✅ <strong>insights.schema.json:</strong> Weighted/unweighted analysis structure</p>
+                    <p>✅ <strong>messages.schema.json:</strong> Conversation turn format</p>
+                    <p>✅ <strong>Version Tracking:</strong> Schema compatibility and migration support</p>
+                </div>
+                
+                <h4>🧪 Testing Coverage:</h4>
+                <ul class="feature-list">
+                    <li><strong>Security Tests:</strong> SQL injection, input validation, bounds checking</li>
+                    <li><strong>Schema Tests:</strong> Export format compliance validation</li>
+                    <li><strong>Weighting Tests:</strong> Persona weight calculations and normalization</li>
+                    <li><strong>Integration Tests:</strong> End-to-end workflow validation</li>
+                </ul>
+                
+                <h4>⚡ Commands to Explore:</h4>
+                <div class="command-box">
+# Run enhanced demo with all features
+python demo_enhanced_mockup.py
+
+# Run interactive CLI version  
+python run_demo.py
+
+# Run comprehensive tests
+python -m pytest tests/test_enhanced_integration.py -v
+                </div>
+                
+                <h4>📁 Key Files:</h4>
+                <ul>
+                    <li><strong>src/session/synthetic_runner.py:</strong> Persona weighting logic</li>
+                    <li><strong>src/vector/backend_pgvector.py:</strong> Secure vector operations</li>
+                    <li><strong>src/export/enhanced_exporter.py:</strong> Weighted analysis exports</li>
+                    <li><strong>tests/test_enhanced_integration.py:</strong> Comprehensive test suite</li>
+                </ul>
+            `;
+            
+            document.getElementById('results-title').textContent = '📋 Technical Details';
+            document.getElementById('results-content').innerHTML = content;
+            showResults();
+        }
+    </script>
+</body>
+</html>

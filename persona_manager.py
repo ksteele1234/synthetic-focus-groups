@@ -24,7 +24,11 @@ def show_detailed_persona_manager():
     st.header("👤 Detailed Persona Manager")
     st.markdown("Create and manage comprehensive buyer personas for your synthetic focus groups")
     
-    tab1, tab2, tab3 = st.tabs(["Create New Persona", "View & Edit Personas", "Import/Export"])
+    # Persona list overview
+    show_persona_overview_table()
+    st.divider()
+    
+    tab1, tab2, tab3, tab4 = st.tabs(["Create New Persona", "View & Edit Personas", "Import/Export", "Web Research Builder"])
     
     with tab1:
         show_persona_creator()
@@ -34,6 +38,9 @@ def show_detailed_persona_manager():
     
     with tab3:
         show_persona_import_export()
+    
+    with tab4:
+        show_web_research_builder()
 
 def show_persona_creator():
     """Interface for creating a new detailed persona from scratch."""
@@ -269,6 +276,60 @@ def show_persona_editor():
         st.markdown("### Persona Overview")
         st.write(selected_persona.persona_summary)
         
+        # Export options
+        with st.expander("Export Options", expanded=False):
+            section_options = [
+                ("Identity/Provenance", "identity"),
+                ("Summary", "summary"),
+                ("Personality Traits", "traits"),
+                ("Values", "values"),
+                ("Community Involvement", "community"),
+                ("Major Struggles", "struggles"),
+                ("Deep Fears (Business)", "fears_business"),
+                ("Previous Software Tried", "prev_software"),
+                ("Desired Results (Business)", "results_business"),
+                ("Desired Results (Personal)", "results_personal"),
+                ("Emotional Transformations", "emotional"),
+                ("If Only Soundbites", "if_only"),
+                ("Desired Reputation", "reputation"),
+                ("Things To Avoid", "avoid"),
+                ("Unwanted Quotes", "unwanted"),
+                ("Big Picture Aspirations", "big_picture"),
+                ("Day-in-the-Life", "day_in_life"),
+                ("Sources & Citations", "citations"),
+            ]
+            default_keys = {k for _, k in section_options}
+            selected = st.multiselect(
+                "Include sections",
+                options=[k for _, k in section_options],
+                default=list(default_keys),
+                format_func=lambda key: next(lbl for lbl,k in section_options if k==key)
+            )
+        
+        # Export buttons (DOCX / PDF)
+        docx_bytes = None
+        pdf_bytes = None
+        try:
+            docx_bytes = export_persona_docx(selected_persona, sections=set(selected))
+            st.download_button(
+                "⬇️ Download DOCX", docx_bytes,
+                file_name=f"{selected_persona.name.replace(' ', '_').lower()}_profile.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                key="dl_docx"
+            )
+        except Exception as e:
+            st.caption(f"DOCX export unavailable: {e}")
+        try:
+            pdf_bytes = export_persona_pdf(selected_persona, sections=set(selected))
+            st.download_button(
+                "⬇️ Download PDF", pdf_bytes,
+                file_name=f"{selected_persona.name.replace(' ', '_').lower()}_profile.pdf",
+                mime="application/pdf",
+                key="dl_pdf"
+            )
+        except Exception as e:
+            st.caption(f"PDF export unavailable: {e}")
+        
         st.markdown("### Key Struggles")
         for struggle in selected_persona.major_struggles[:3]:
             st.write(f"• {struggle}")
@@ -393,6 +454,552 @@ def show_persona_editor():
         if st.button("✅ Confirm Delete"):
             # In a real implementation, this would remove the persona from storage
             st.error(f"Deleted {selected_persona.name}")
+
+def citation_store_path() -> str:
+    import os
+    base = os.path.join(os.path.dirname(__file__), 'data', 'citations')
+    os.makedirs(base, exist_ok=True)
+    return os.path.join(base, 'citations.json')
+
+
+def load_citation_store() -> Dict[str, Any]:
+    import json, os
+    path = citation_store_path()
+    if os.path.exists(path):
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+
+def compute_citation_key(q: Dict[str, Any]) -> str:
+    import hashlib
+    base = (q.get('url','') + '|' + (q.get('span','')[:200] or '')).encode('utf-8', errors='ignore')
+    return hashlib.sha1(base).hexdigest()
+
+
+def persist_citations(quotes: List[Dict[str, Any]]):
+    import json, time
+    store = load_citation_store()
+    modified = False
+    for q in quotes or []:
+        key = compute_citation_key(q)
+        if key not in store:
+            store[key] = {
+                'community': q.get('community','external'),
+                'url': q.get('url',''),
+                'span': q.get('span','')[:500],
+                'count': 1,
+                'first_seen': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+                'last_seen': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+            }
+            modified = True
+        else:
+            store[key]['count'] = int(store[key].get('count', 0)) + 1
+            store[key]['last_seen'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+            modified = True
+    if modified:
+        with open(citation_store_path(), 'w', encoding='utf-8') as f:
+            json.dump(store, f, indent=2, ensure_ascii=False)
+
+
+def show_web_research_builder():
+    """Build personas from web evidence (Reddit/Quora) + human coordinator sources."""
+    import sys, os, io
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+    from research.web_persona_builder import WebPersonaBuilder
+
+    st.subheader("🌐 Web Research Builder")
+    st.write("Construct evidence-backed personas from Reddit/Quora and attach coordinator-provided sources (URLs, documents).")
+
+    # Session store for extra sources
+    if 'web_extra_sources' not in st.session_state:
+        st.session_state.web_extra_sources = []
+
+    with st.form("web_research_sources_form"):
+        st.markdown("### Add Coordinator Sources")
+        url_text = st.text_area("Source URLs (one per line)")
+        files = st.file_uploader(
+            "Attach documents (PDF, DOCX, CSV, XLSX)",
+            type=["pdf", "docx", "csv", "xlsx"],
+            accept_multiple_files=True,
+            key="web_sources_upload"
+        )
+        add_sources = st.form_submit_button("➕ Add Sources")
+
+    if add_sources:
+        added = 0
+        # URLs
+        for line in (url_text or "").splitlines():
+            url = line.strip()
+            if not url:
+                continue
+            snippet = fetch_url_text(url)
+            if snippet:
+                st.session_state.web_extra_sources.append({
+                    'source_type': 'url', 'community': 'external_url', 'published_at': '',
+                    'weight': 1, 'snippet': snippet[:2000], 'url': url
+                })
+                added += 1
+        # Files
+        for f in (files or []):
+            try:
+                text = extract_file_text(f)
+                st.session_state.web_extra_sources.append({
+                    'source_type': 'file', 'community': f.name, 'published_at': '',
+                    'weight': 1, 'snippet': text[:4000], 'url': ''
+                })
+                added += 1
+            except Exception as e:
+                st.error(f"Failed to read {f.name}: {e}")
+        if added:
+            st.success(f"Added {added} sources")
+        else:
+            st.info("No sources added")
+
+    with st.expander("Current added sources", expanded=False):
+        st.write(f"Total sources: {len(st.session_state.web_extra_sources)}")
+        for i, s in enumerate(st.session_state.web_extra_sources, 1):
+            st.write(f"{i}. {s.get('community','external')} - {s.get('url','')}")
+        if st.button("Clear Sources"):
+            st.session_state.web_extra_sources = []
+            st.success("Cleared")
+
+    with st.form("web_research_form"):
+        st.markdown("### Evidence Query (web)")
+        query = st.text_input("Search query (topic, pain point, product, etc.)", value="social media management tool")
+        subs = st.text_input("Subreddits (comma-separated)", value="smallbusiness, marketing")
+        min_upvotes = st.slider("Minimum upvotes", 0, 100, 10)
+        limit = st.slider("Quote limit", 5, 50, 15)
+        use_quora_stub = st.checkbox("Include Quora stub if Reddit is empty", value=True)
+        submitted = st.form_submit_button("🔎 Gather Evidence & Build Persona", type="primary")
+
+    if submitted:
+        try:
+            builder = WebPersonaBuilder()
+            sub_list = [s.strip() for s in subs.split(',') if s.strip()]
+            quotes = builder.gather_quotes(query, subreddits=sub_list, min_upvotes=min_upvotes, limit=limit)
+            if not quotes and use_quora_stub:
+                quotes = builder.gather_quora_quotes(query, limit=limit)
+
+            if not quotes and not st.session_state.web_extra_sources:
+                st.warning("No web quotes found and no coordinator sources provided. Add sources or broaden your query.")
+                return
+
+            persona_dict = builder.build_persona_from_evidence(
+                query, subreddits=sub_list, min_upvotes=min_upvotes, limit=limit,
+                additional_sources=st.session_state.web_extra_sources
+            )
+
+            st.success("✅ Persona synthesized from evidence + coordinator sources!")
+            st.json({k: v for k, v in persona_dict.items() if k != 'evidence_quotes'})
+
+            with st.expander("📜 Evidence & Sources"):
+                for q in persona_dict.get('evidence_quotes', []):
+                    st.write(f"• [{q.get('community','external')}] {q.get('span','')[:160]}{'...' if len(q.get('span',''))>160 else ''}")
+                    if q.get('url'):
+                        st.caption(q['url'])
+
+            save_sources = st.checkbox("Save sources/citations with this persona", value=True)
+            if st.button("💾 Save Persona to Library"):
+                if save_sources:
+                    try:
+                        persist_citations(persona_dict.get('evidence_quotes', []))
+                    except Exception as e:
+                        st.caption(f"Note: could not persist citations store: {e}")
+                else:
+                    persona_dict.pop('evidence_quotes', None)
+                save_persona(persona_dict)
+                st.success("Saved to local personas store")
+        except Exception as e:
+            st.error(f"Error building persona: {e}")
+
+
+def fetch_url_text(url: str) -> str:
+    """Fetch and extract main text from a URL (best-effort)."""
+    try:
+        import requests
+        html = requests.get(url, timeout=10, headers={"User-Agent":"PersonaResearchBot/1.0"}).text
+        try:
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(html, 'html.parser')
+            # remove scripts/styles
+            for tag in soup(["script","style","noscript"]):
+                tag.extract()
+            text = soup.get_text(" ")
+        except Exception:
+            # Fallback: crude text
+            text = html
+        return text[:8000]
+    except Exception:
+        return ""
+
+
+def extract_file_text(uploaded_file) -> str:
+    """Extract text from uploaded documents."""
+    import pandas as pd
+    name = uploaded_file.name.lower()
+    if name.endswith('.pdf'):
+        try:
+            import PyPDF2
+        except ImportError:
+            raise Exception("PyPDF2 not installed. pip install PyPDF2")
+        reader = PyPDF2.PdfReader(uploaded_file)
+        pages = []
+        for p in reader.pages:
+            try:
+                pages.append(p.extract_text() or "")
+            except Exception:
+                continue
+        return "\n".join(pages)
+    elif name.endswith('.docx'):
+        try:
+            import docx
+        except ImportError:
+            raise Exception("python-docx not installed. pip install python-docx")
+        doc = docx.Document(uploaded_file)
+        return "\n".join([para.text for para in doc.paragraphs])
+    elif name.endswith('.csv'):
+        df = pd.read_csv(uploaded_file)
+        return df.to_csv(index=False)
+    elif name.endswith('.xlsx'):
+        try:
+            df = pd.read_excel(uploaded_file)
+        except Exception:
+            raise Exception("openpyxl required for Excel files. pip install openpyxl")
+        return df.to_csv(index=False)
+    elif name.endswith('.doc'):
+        raise Exception(".doc not supported. Convert to .docx or install a converter (e.g., unoconv).")
+    else:
+        raise Exception("Unsupported file type")
+
+def show_persona_overview_table():
+    """Show a sortable table of all personas: Name, profession, age, project."""
+    # Load personas from storage/session
+    personas = load_personas()
+    if not personas:
+        st.info("No saved personas yet. Create one below or import.")
+        return
+    data = []
+    for p in personas:
+        data.append({
+            'Name': p.name,
+            'Profession': p.occupation,
+            'Age': p.age,
+            'Project': p.created_for_project_name or "",
+        })
+    df = pd.DataFrame(data)
+    st.subheader("All Personas")
+    st.dataframe(df.sort_values(by=['Name']), use_container_width=True)
+    
+    # Export controls
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        if st.button("Export CSV"):
+            csv_bytes = df.to_csv(index=False).encode('utf-8')
+            st.download_button("Download CSV", csv_bytes, file_name="personas.csv", mime="text/csv")
+        if st.button("Export All Profiles (DOCX ZIP)"):
+            try:
+                import io, zipfile
+                personas_all = load_personas()
+                bio = io.BytesIO()
+                with zipfile.ZipFile(bio, 'w', zipfile.ZIP_DEFLATED) as zf:
+                    for p in personas_all:
+                        try:
+                            zf.writestr(f"{p.name.replace(' ','_').lower()}_profile.docx", export_persona_docx(p))
+                        except Exception:
+                            continue
+                st.download_button("Download Profiles DOCX ZIP", bio.getvalue(), file_name="personas_profiles_docx.zip", mime="application/zip")
+            except Exception as e:
+                st.error(f"ZIP export failed: {e}")
+    with col2:
+        try:
+            import pandas as pd
+            xls_bytes = df.to_excel(index=False, engine='openpyxl') if False else None
+        except Exception:
+            xls_bytes = None
+        if st.button("Export XLSX"):
+            try:
+                import io
+                bio = io.BytesIO()
+                with pd.ExcelWriter(bio, engine='openpyxl') as writer:
+                    df.to_excel(writer, index=False, sheet_name='Personas')
+                st.download_button("Download XLSX", bio.getvalue(), file_name="personas.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            except Exception:
+                st.error("Install openpyxl to export XLSX: pip install openpyxl")
+        if st.button("Export All Profiles (PDF ZIP)"):
+            try:
+                import io, zipfile
+                personas_all = load_personas()
+                bio = io.BytesIO()
+                with zipfile.ZipFile(bio, 'w', zipfile.ZIP_DEFLATED) as zf:
+                    for p in personas_all:
+                        try:
+                            zf.writestr(f"{p.name.replace(' ','_').lower()}_profile.pdf", export_persona_pdf(p))
+                        except Exception:
+                            continue
+                st.download_button("Download Profiles PDF ZIP", bio.getvalue(), file_name="personas_profiles_pdf.zip", mime="application/zip")
+            except Exception as e:
+                st.error(f"ZIP export failed: {e}")
+    with col3:
+        if st.button("Export DOCX"):
+            try:
+                import docx, io
+                doc = docx.Document()
+                doc.add_heading('Personas', level=1)
+                table = doc.add_table(rows=1, cols=len(df.columns))
+                hdr_cells = table.rows[0].cells
+                for i, col in enumerate(df.columns):
+                    hdr_cells[i].text = str(col)
+                for _, row in df.iterrows():
+                    cells = table.add_row().cells
+                    for i, col in enumerate(df.columns):
+                        cells[i].text = str(row[col])
+                bio = io.BytesIO()
+                doc.save(bio)
+                st.download_button("Download DOCX", bio.getvalue(), file_name="personas.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+            except Exception:
+                st.error("Install python-docx to export DOCX: pip install python-docx")
+
+
+def export_persona_docx(p, sections: set | None = None) -> bytes:
+    import io, docx
+    doc = docx.Document()
+    doc.add_heading(p.name, level=1)
+    meta = doc.add_paragraph()
+    if not sections or 'identity' in sections:
+        meta.add_run(f"Profession: {p.occupation}\n").bold = True
+        meta.add_run(f"Age: {p.age}\n")
+        if getattr(p, 'education', None):
+            meta.add_run(f"Education: {getattr(p, 'education', '')}\n")
+    if getattr(p, 'annual_income', None):
+        meta.add_run(f"Income: {getattr(p, 'annual_income', '')}\n")
+    if p.location:
+        meta.add_run(f"Location: {p.location}\n")
+    if getattr(p, 'relationship_family', None):
+        meta.add_run(f"Family: {getattr(p, 'relationship_family', '')}\n")
+    if p.created_for_project_name:
+        meta.add_run(f"Project: {p.created_for_project_name}\n")
+    
+    if not sections or 'summary' in sections:
+        doc.add_heading("Summary", level=2)
+        doc.add_paragraph(p.persona_summary or "")
+    
+    def add_list(title, items):
+        if items:
+            doc.add_heading(title, level=2)
+            for it in items:
+                doc.add_paragraph(str(it), style='List Bullet')
+    
+    if not sections or 'traits' in sections:
+        add_list("Personality Traits", getattr(p, 'personality_traits', []))
+    if not sections or 'values' in sections:
+        add_list("Values", getattr(p, 'values', []))
+    if not sections or 'community' in sections:
+        add_list("Community Involvement", getattr(p, 'community_involvement', []))
+    if not sections or 'struggles' in sections:
+        add_list("Major Struggles", p.major_struggles)
+    if not sections or 'fears_business' in sections:
+        add_list("Deep Fears (Business)", p.deep_fears_business)
+    if not sections or 'prev_software' in sections:
+        add_list("Previous Software Tried", p.previous_software_tried)
+    if not sections or 'results_business' in sections:
+        add_list("Desired Results (Business)", p.tangible_business_results)
+    if not sections or 'results_personal' in sections:
+        add_list("Desired Results (Personal)", getattr(p, 'tangible_personal_results', []))
+    if not sections or 'emotional' in sections:
+        add_list("Emotional Transformations", getattr(p, 'emotional_transformations', []))
+    if not sections or 'if_only' in sections:
+        add_list("If Only Soundbites", p.if_only_soundbites)
+    if not sections or 'reputation' in sections:
+        add_list("Desired Reputation", getattr(p, 'desired_reputation', []))
+    if not sections or 'unwanted' in sections:
+        add_list("Unwanted Quotes", getattr(p, 'unwanted_quotes', []))
+    if not sections or 'avoid' in sections:
+        add_list("Things To Avoid", getattr(p, 'things_to_avoid', []))
+    
+    if (not sections or 'big_picture' in sections) and getattr(p, 'big_picture_aspirations', None):
+        doc.add_heading("Big Picture Aspirations", level=2)
+        doc.add_paragraph(p.big_picture_aspirations)
+    if (not sections or 'day_in_life' in sections) and getattr(p, 'ideal_day_scenario', None):
+        doc.add_heading("Day-in-the-Life", level=2)
+        doc.add_paragraph(p.ideal_day_scenario)
+
+    # Citations
+    if (not sections or 'citations' in sections) and getattr(p, 'evidence_quotes', None):
+        doc.add_heading("Sources & Citations", level=2)
+        for q in p.evidence_quotes[:20]:
+            line = f"[{q.get('community','external')}] {q.get('span','')[:180]}"
+            doc.add_paragraph(line)
+            if q.get('url'):
+                doc.add_paragraph(q['url'])
+        # Citation index using global store counts
+        try:
+            store = load_citation_store()
+            index = {}
+            for q in p.evidence_quotes:
+                key = compute_citation_key(q)
+                meta = store.get(key)
+                if meta:
+                    index[key] = meta
+            if index:
+                doc.add_heading("Citation Index", level=2)
+                for key, meta in index.items():
+                    doc.add_paragraph(f"[{meta.get('community','external')}] count={meta.get('count',1)}")
+                    if meta.get('url'):
+                        doc.add_paragraph(meta.get('url'))
+                    if meta.get('span'):
+                        doc.add_paragraph(meta.get('span')[:180])
+        except Exception:
+            pass
+    
+    bio = io.BytesIO()
+    doc.save(bio)
+    return bio.getvalue()
+
+
+def export_persona_pdf(p, sections: set | None = None) -> bytes:
+    # Simple PDF using reportlab
+    import io
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.units import inch
+    
+    def draw_wrapped(c, text, x, y, max_width=7.0*inch, leading=14):
+        from reportlab.pdfbase.pdfmetrics import stringWidth
+        words = text.split()
+        line = ""
+        while words and y > 1*inch:
+            while words and stringWidth(line + (words[0] + " "), "Helvetica", 11) < max_width:
+                line += words.pop(0) + " "
+            c.drawString(x, y, line.strip())
+            y -= leading
+            line = ""
+        return y
+    
+    bio = io.BytesIO()
+    c = canvas.Canvas(bio, pagesize=letter)
+    width, height = letter
+    x, y = 1*inch, height - 1*inch
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(x, y, p.name)
+    y -= 18
+    c.setFont("Helvetica", 11)
+    meta_parts = []
+    if not sections or 'identity' in sections:
+        meta_parts = [f"Profession: {p.occupation}", f"Age: {p.age}"]
+        if getattr(p, 'education', None):
+            meta_parts.append(f"Education: {getattr(p, 'education', '')}")
+    if getattr(p, 'annual_income', None):
+        meta_parts.append(f"Income: {getattr(p, 'annual_income', '')}")
+    if p.location:
+        meta_parts.append(f"Location: {p.location}")
+    if getattr(p, 'relationship_family', None):
+        meta_parts.append(f"Family: {getattr(p, 'relationship_family', '')}")
+    if p.created_for_project_name:
+        meta_parts.append(f"Project: {p.created_for_project_name}")
+    meta = "  |  ".join(meta_parts)
+    y = draw_wrapped(c, meta, x, y)
+    y -= 10
+    if not sections or 'summary' in sections:
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(x, y, "Summary")
+        y -= 14
+        c.setFont("Helvetica", 11)
+        y = draw_wrapped(c, p.persona_summary or "", x, y)
+        y -= 10
+    def write_list(title, items):
+        nonlocal x, y
+        if not items:
+            return
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(x, y, title)
+        y -= 14
+        c.setFont("Helvetica", 11)
+        for it in items:
+            y = draw_wrapped(c, f"• {str(it)}", x, y)
+        y -= 4
+    if not sections or 'traits' in sections:
+        write_list("Personality Traits", getattr(p, 'personality_traits', []))
+    if not sections or 'values' in sections:
+        write_list("Values", getattr(p, 'values', []))
+    if not sections or 'community' in sections:
+        write_list("Community Involvement", getattr(p, 'community_involvement', []))
+    if not sections or 'struggles' in sections:
+        write_list("Major Struggles", p.major_struggles)
+    if not sections or 'fears_business' in sections:
+        write_list("Deep Fears (Business)", p.deep_fears_business)
+    if not sections or 'prev_software' in sections:
+        write_list("Previous Software Tried", p.previous_software_tried)
+    if not sections or 'results_business' in sections:
+        write_list("Desired Results (Business)", p.tangible_business_results)
+    if not sections or 'results_personal' in sections:
+        write_list("Desired Results (Personal)", getattr(p, 'tangible_personal_results', []))
+    if not sections or 'emotional' in sections:
+        write_list("Emotional Transformations", getattr(p, 'emotional_transformations', []))
+    if not sections or 'if_only' in sections:
+        write_list("If Only Soundbites", p.if_only_soundbites)
+    if not sections or 'reputation' in sections:
+        write_list("Desired Reputation", getattr(p, 'desired_reputation', []))
+    if not sections or 'avoid' in sections:
+        write_list("Things To Avoid", getattr(p, 'things_to_avoid', []))
+    if not sections or 'unwanted' in sections:
+        write_list("Unwanted Quotes", getattr(p, 'unwanted_quotes', []))
+    if (not sections or 'big_picture' in sections) and getattr(p, 'big_picture_aspirations', None):
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(x, y, "Big Picture Aspirations")
+        y -= 14
+        c.setFont("Helvetica", 11)
+        y = draw_wrapped(c, p.big_picture_aspirations, x, y)
+    if (not sections or 'day_in_life' in sections) and getattr(p, 'ideal_day_scenario', None):
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(x, y, "Day-in-the-Life")
+        y -= 14
+        c.setFont("Helvetica", 11)
+        y = draw_wrapped(c, p.ideal_day_scenario, x, y)
+
+    # Citations
+    if (not sections or 'citations' in sections) and getattr(p, 'evidence_quotes', None):
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(x, y, "Sources & Citations")
+        y -= 14
+        c.setFont("Helvetica", 11)
+        quotes = p.evidence_quotes[:12]
+        for q in quotes:
+            y = draw_wrapped(c, f"[{q.get('community','external')}] {q.get('span','')[:140]}", x, y)
+            if q.get('url'):
+                y = draw_wrapped(c, q['url'], x, y)
+            y -= 4
+        # Citation index counts
+        try:
+            store = load_citation_store()
+            index = {}
+            for q in p.evidence_quotes:
+                key = compute_citation_key(q)
+                meta = store.get(key)
+                if meta:
+                    index[key] = meta
+            if index:
+                c.setFont("Helvetica-Bold", 12)
+                c.drawString(x, y, "Citation Index")
+                y -= 14
+                c.setFont("Helvetica", 11)
+                for key, meta in list(index.items())[:12]:
+                    y = draw_wrapped(c, f"[{meta.get('community','external')}] count={meta.get('count',1)}", x, y)
+                    if meta.get('url'):
+                        y = draw_wrapped(c, meta.get('url'), x, y)
+                    if meta.get('span'):
+                        y = draw_wrapped(c, meta.get('span')[:140], x, y)
+                    y -= 4
+        except Exception:
+            pass
+
+    c.showPage()
+    c.save()
+    return bio.getvalue()
+
 
 def show_persona_import_export():
     """Interface for importing and exporting detailed personas."""

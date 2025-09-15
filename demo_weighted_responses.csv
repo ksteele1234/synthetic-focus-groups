@@ -1,0 +1,7 @@
+persona_id,persona_name,persona_weight,is_primary_icp,sentiment_score,weighted_sentiment,themes
+sarah_small_business,Sarah Thompson,1.3846153846153846,True,0.2,0.27692307692307694,tool_switching; integration_needs; pricing_acceptance
+sarah_small_business,Sarah Thompson,1.3846153846153846,True,0.6,0.8307692307692307,pricing_acceptance; time_savings; roi_focus
+mike_marketing_mgr,Mike Rodriguez,0.9230769230769231,False,0.1,0.09230769230769231,attribution_problems; roi_tracking; executive_pressure
+mike_marketing_mgr,Mike Rodriguez,0.9230769230769231,False,0.4,0.36923076923076925,analytics_integration; crm_connection; business_impact
+jenny_freelancer,Jenny Chen,0.6923076923076923,False,0.0,0.0,multi_client_management; manual_reporting; budget_constraints
+jenny_freelancer,Jenny Chen,0.6923076923076923,False,0.3,0.20769230769230768,budget_constraints; basic_features; pricing_sensitivity

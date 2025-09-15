@@ -17,6 +17,20 @@ except ImportError:
     openai = None
 
 
+# Lightweight response wrappers to normalize shape across real and mock clients
+class _SimpleMessage:
+    def __init__(self, content: str):
+        self.content = content
+
+class _SimpleChoice:
+    def __init__(self, content: str):
+        self.message = _SimpleMessage(content)
+
+class _SimpleResponse:
+    def __init__(self, content: str):
+        self.choices = [_SimpleChoice(content)]
+
+
 class OpenAIClient:
     """Client for OpenAI API integration."""
     
@@ -42,6 +56,17 @@ class OpenAIClient:
             'frequency_penalty': 0.1,
             'presence_penalty': 0.1
         }
+
+    def chat_completion(self, messages: List[Dict[str, str]], **kwargs) -> Any:
+        """Wrapper that returns a simple, attribute-accessible response object.
+        Matches usage in synthetic_runner (response.choices[0].message.content).
+        """
+        response = self._make_api_call(messages=messages, **{**self.default_params, **kwargs})
+        try:
+            content = response['choices'][0]['message']['content'].strip()
+        except Exception:
+            content = ""
+        return _SimpleResponse(content)
     
     def generate_persona_response(self, persona_prompt: str, question: str, context: str = "", 
                                 session_context: str = "", **kwargs) -> Dict[str, Any]:
@@ -416,8 +441,177 @@ Please enhance this persona with additional realistic details in JSON format:
 
 
 # Utility function to create client instance
-def create_openai_client(api_key: str = None, model: str = "gpt-3.5-turbo") -> Optional[OpenAIClient]:
-    """Create OpenAI client instance if API is available."""
+class MockOpenAIClient:
+    """Mock OpenAI client for demo mode."""
+    
+    def __init__(self):
+        self.model = "demo-mode"
+        self.default_params = {}
+    
+    def chat_completion(self, messages: List[Dict[str, str]], **kwargs) -> Any:
+        """Return a simple response object mimicking OpenAI structure."""
+        # Use last user message content as context to craft a basic reply
+        prompt_text = ""
+        if messages:
+            last = messages[-1]
+            prompt_text = last.get('content', '') if isinstance(last, dict) else str(last)
+        content = f"[Demo response] {prompt_text[:180]}..."
+        return _SimpleResponse(content)
+    
+    def generate_persona_response(self, persona_prompt: str, question: str, context: str = "", 
+                                session_context: str = "", **kwargs) -> Dict[str, Any]:
+        """Generate a mock response from a persona."""
+        import random
+        
+        # Extract persona name from prompt
+        lines = persona_prompt.split('\n')
+        name = "Demo Participant"
+        for line in lines:
+            if line.startswith("Name:"):
+                name = line.replace("Name:", "").strip()
+                break
+        
+        # Generate mock response based on question type
+        mock_responses = [
+            f"As {name}, I think that's really interesting. In my experience...",
+            f"That's a great question! From my perspective as {name}...",
+            f"I've actually dealt with this before. What I found was...",
+            f"This reminds me of something that happened to me recently...",
+            f"I have mixed feelings about this. On one hand... but on the other hand..."
+        ]
+        
+        base_response = random.choice(mock_responses)
+        
+        return {
+            'success': True,
+            'content': base_response + " [This is a demo response - connect OpenAI for real AI interactions]",
+            'usage': {'total_tokens': 50, 'prompt_tokens': 30, 'completion_tokens': 20},
+            'model': 'demo-mode',
+            'timestamp': datetime.now().isoformat()
+        }
+    
+    def generate_facilitator_question(self, facilitator_prompt: str, primary_question: str,
+                                    participant_responses: List[str], context: str = "",
+                                    follow_up_count: int = 3, **kwargs) -> Dict[str, Any]:
+        """Generate mock follow-up questions."""
+        mock_questions = [
+            "Can you tell me more about that experience?",
+            "How do you think others might feel about this?",
+            "What would make this solution more appealing to you?",
+            "Have you encountered similar situations before?",
+            "What's the most important factor in your decision-making?"
+        ]
+        
+        import random
+        selected_questions = random.sample(mock_questions, min(follow_up_count, len(mock_questions)))
+        
+        return {
+            'success': True,
+            'questions': [q + " [Demo question]" for q in selected_questions],
+            'raw_content': "\n".join(f"{i+1}. {q}" for i, q in enumerate(selected_questions)),
+            'usage': {'total_tokens': 30},
+            'model': 'demo-mode',
+            'timestamp': datetime.now().isoformat()
+        }
+    
+    def analyze_session_themes(self, session_responses: List[Dict[str, Any]], 
+                             background_context: str = "", **kwargs) -> Dict[str, Any]:
+        """Generate mock session analysis."""
+        mock_analysis = {
+            'themes': [
+                {"theme": "User Experience Concerns", "description": "Participants emphasized ease of use", "frequency": "high", "participants": ["Demo User 1", "Demo User 2"]},
+                {"theme": "Cost Sensitivity", "description": "Budget considerations were frequently mentioned", "frequency": "medium", "participants": ["Demo User 1"]},
+                {"theme": "Feature Requests", "description": "Several specific feature enhancements suggested", "frequency": "high", "participants": ["Demo User 2"]}
+            ],
+            'sentiment': {'overall': 'positive', 'score': 0.7, 'notes': 'Generally positive with some concerns'},
+            'insights': ["Users value simplicity over advanced features", "Price point is a key decision factor"],
+            'patterns': ["Consistent emphasis on user-friendly design", "Desire for better integration capabilities"],
+            'recommendations': ["Prioritize UI/UX improvements", "Consider tiered pricing model"]
+        }
+        
+        return {
+            'success': True,
+            'analysis': mock_analysis,
+            'raw_content': "[Demo analysis - connect OpenAI for real AI analysis]",
+            'usage': {'total_tokens': 100},
+            'model': 'demo-mode',
+            'timestamp': datetime.now().isoformat()
+        }
+    
+    def generate_research_report(self, session_data: Dict[str, Any], 
+                               background_info: Dict[str, Any] = None, **kwargs) -> Dict[str, Any]:
+        """Generate mock research report."""
+        mock_report = """# Executive Research Report
+
+## Executive Summary
+- Participants showed strong interest in the product concept
+- Key concerns centered around pricing and ease of use
+- Recommendations focus on UI improvements and tiered pricing
+
+## Key Findings
+1. **User Experience Priority**: All participants emphasized the importance of intuitive design
+2. **Price Sensitivity**: 75% of participants mentioned cost as a primary factor
+3. **Feature Requests**: Integration capabilities were the most requested enhancement
+
+## Strategic Recommendations
+1. Invest in user experience research and design improvements
+2. Develop a tiered pricing strategy to address different market segments
+3. Prioritize integration features in the product roadmap
+
+## Next Steps
+- Conduct additional research on pricing sensitivity
+- Prototype key user experience improvements
+- Evaluate integration partnership opportunities
+
+[This is a demo report - connect OpenAI for real AI-generated reports]"""
+        
+        return {
+            'success': True,
+            'report': mock_report,
+            'usage': {'total_tokens': 200},
+            'model': 'demo-mode',
+            'timestamp': datetime.now().isoformat()
+        }
+    
+    def enhance_persona_profile(self, existing_persona: Dict[str, Any], 
+                              research_context: str = "", **kwargs) -> Dict[str, Any]:
+        """Generate mock persona enhancements."""
+        mock_enhancements = {
+            'enhanced_background': "Enhanced with additional realistic details and motivations [Demo enhancement]",
+            'personality_traits': ["Detail-oriented", "Collaborative", "Results-driven"],
+            'motivations': ["Professional growth", "Work-life balance", "Financial security"],
+            'pain_points': ["Time management challenges", "Budget constraints", "Technology adoption"],
+            'values': ["Quality", "Efficiency", "Reliability"],
+            'communication_style': "Direct and practical, prefers concrete examples",
+            'relevant_experiences': ["Previous software implementations", "Team leadership", "Budget management"]
+        }
+        
+        return {
+            'success': True,
+            'enhancements': mock_enhancements,
+            'raw_content': "[Demo persona enhancements - connect OpenAI for real AI enhancements]",
+            'usage': {'total_tokens': 150},
+            'model': 'demo-mode',
+            'timestamp': datetime.now().isoformat()
+        }
+    
+    def test_connection(self) -> Dict[str, Any]:
+        """Mock connection test."""
+        return {
+            'success': True,
+            'message': 'Demo mode - OpenAI API not connected',
+            'model': 'demo-mode',
+            'usage': {}
+        }
+
+
+def create_openai_client(api_key: str = None, model: str = "gpt-3.5-turbo") -> Optional[Union[OpenAIClient, MockOpenAIClient]]:
+    """Create OpenAI client instance if API is available, otherwise return mock client for demo mode."""
+    # Check for demo mode
+    demo_mode = os.environ.get('DEMO_MODE', '').lower() == 'true'
+    if demo_mode:
+        return MockOpenAIClient()
+    
     try:
         return OpenAIClient(api_key=api_key, model=model)
     except (ImportError, ValueError) as e:

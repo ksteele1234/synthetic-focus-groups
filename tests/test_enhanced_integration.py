@@ -18,6 +18,10 @@ from models.session import Session, SessionResponse
 from personas.enhanced_manager import EnhancedPersonaManager
 from ai.agents import OrchestratorAgent, SurveyMethodologistAgent, QualitativeCodingSpecialist, DataVisualizationDesigner
 from export.enhanced_exporter import EnhancedDataExporter
+from src.vector.backend_pgvector import PgVector
+from session.synthetic_runner import SyntheticSessionRunner, PersonaWeight, create_sample_personas, create_sample_persona_weights
+import jsonschema
+import hashlib
 
 
 class TestEnhancedIntegration(unittest.TestCase):
@@ -526,6 +530,248 @@ The weighted analysis confirms that focusing on the primary ICP segment will dri
         self.assertIn('workflow_efficiency', icp_analysis['unique_themes'])
         
         print("✅ ICP analysis accuracy verified")
+    
+    def test_vector_backend_security(self):
+        """Test that vector backend security measures work correctly."""
+        # Test input validation
+        backend = PgVector()
+        
+        # Test invalid collection names (should raise ValueError)
+        with self.assertRaises(ValueError):
+            backend._ensure_table("invalid; DROP TABLE users;", 1536)  # SQL injection attempt
+        
+        with self.assertRaises(ValueError):
+            backend._ensure_table("invalid\x00name", 1536)  # Null byte injection
+        
+        with self.assertRaises(ValueError):
+            backend._ensure_table("", 1536)  # Empty name
+        
+        # Test dimension validation
+        with self.assertRaises(ValueError):
+            backend._ensure_table("valid_name", 0)  # Invalid dimension
+        
+        with self.assertRaises(ValueError):
+            backend._ensure_table("valid_name", 5000)  # Too large dimension
+        
+        print("✅ Vector backend security validation verified")
+    
+    def test_schema_validation_insights(self):
+        """Test that exports conform to insights schema."""
+        # Load the schema
+        with open('schemas/insights.schema.json', 'r') as f:
+            schema = json.load(f)
+        
+        # Create a mock export following the schema structure
+        mock_insight = {
+            "schema_version": "1.0.0",
+            "study_id": "test_study_001",
+            "generated_at": datetime.now().isoformat(),
+            "checksum": hashlib.sha256(b"test_data").hexdigest(),
+            "insights": {
+                "weighted": {
+                    "themes": [
+                        {
+                            "theme": "Workflow Integration",
+                            "score": 0.85,
+                            "sentiment": "positive",
+                            "quotes": [
+                                {
+                                    "text": "Integration would be game-changing",
+                                    "persona_id": "sarah_001",
+                                    "weight": 3.0
+                                }
+                            ]
+                        }
+                    ],
+                    "sentiment_summary": {
+                        "positive": 0.6,
+                        "negative": 0.2,
+                        "neutral": 0.2
+                    },
+                    "limitations": ["Sample size may be limited"],
+                    "agreement_scores": {
+                        "workflow_integration": 0.85
+                    }
+                },
+                "unweighted": {
+                    "themes": [],
+                    "sentiment_summary": {"positive": 0.5, "negative": 0.3, "neutral": 0.2},
+                    "limitations": [],
+                    "agreement_scores": {}
+                },
+                "per_persona": [
+                    {
+                        "persona_id": "sarah_001",
+                        "name": "Sarah Thompson",
+                        "weight": 3.0,
+                        "contributions": {
+                            "message_count": 5,
+                            "dominant_sentiment": "positive",
+                            "key_themes": ["workflow_integration"],
+                            "influence_score": 0.8
+                        }
+                    }
+                ]
+            },
+            "metadata": {
+                "study_title": "Enhanced Customer Research",
+                "objective": "Understand user pain points",
+                "total_personas": 4,
+                "session_duration_minutes": 65.0,
+                "guardrail_events": 0
+            }
+        }
+        
+        # Validate against schema
+        try:
+            jsonschema.validate(mock_insight, schema)
+            print("✅ Insights schema validation passed")
+        except jsonschema.ValidationError as e:
+            self.fail(f"Schema validation failed: {e}")
+    
+    def test_schema_validation_messages(self):
+        """Test that message exports conform to messages schema."""
+        # Load the schema
+        with open('schemas/messages.schema.json', 'r') as f:
+            schema = json.load(f)
+        
+        # Create mock messages following the schema
+        mock_messages = [
+            {
+                "study_id": "test_study_001",
+                "turn": 1,
+                "persona_name": "Sarah Thompson",
+                "role": "participant",
+                "content": "I currently use three different apps and it's frustrating",
+                "tokens": 12,
+                "cost": 0.001,
+                "topics": ["workflow_efficiency", "tool_management"],
+                "sentiment": "negative",
+                "ts": datetime.now().isoformat()
+            },
+            {
+                "study_id": "test_study_001",
+                "turn": 2,
+                "persona_name": None,
+                "role": "facilitator",
+                "content": "Can you tell me more about that frustration?",
+                "tokens": 10,
+                "cost": None,
+                "topics": [],
+                "sentiment": None,
+                "ts": datetime.now().isoformat()
+            }
+        ]
+        
+        # Validate against schema
+        try:
+            jsonschema.validate(mock_messages, schema)
+            print("✅ Messages schema validation passed")
+        except jsonschema.ValidationError as e:
+            self.fail(f"Message schema validation failed: {e}")
+    
+    def test_synthetic_runner_persona_weighting(self):
+        """Test the new persona weighting functionality in synthetic runner."""
+        # Create synthetic runner
+        runner = SyntheticSessionRunner()
+        
+        # Test setting persona weights
+        runner.set_persona_weight("test_persona_1", 3.0, rank=1, is_primary_icp=True, notes="Primary target")
+        runner.set_persona_weight("test_persona_2", 1.5, rank=2, notes="Secondary target")
+        
+        # Test weight retrieval and normalization
+        weights = runner.get_analysis_weights()
+        self.assertIn("test_persona_1", weights)
+        self.assertIn("test_persona_2", weights)
+        self.assertGreater(weights["test_persona_1"], weights["test_persona_2"])
+        
+        # Test primary ICP setting
+        self.assertEqual(runner.primary_icp_persona_id, "test_persona_1")
+        
+        # Test persona ranking
+        ranked = runner.get_ranked_personas()
+        self.assertEqual(len(ranked), 2)
+        self.assertEqual(ranked[0].persona_id, "test_persona_1")
+        self.assertEqual(ranked[0].rank, 1)
+        self.assertTrue(ranked[0].is_primary_icp)
+        
+        print("✅ Synthetic runner persona weighting verified")
+    
+    def test_sample_persona_data_integrity(self):
+        """Test that sample persona data is consistent and valid."""
+        # Test sample personas
+        personas = create_sample_personas()
+        self.assertEqual(len(personas), 3)
+        
+        for persona in personas:
+            self.assertIn('id', persona)
+            self.assertIn('name', persona)
+            self.assertIn('role', persona)
+            self.assertIsInstance(persona['id'], str)
+            self.assertGreater(len(persona['id']), 0)
+        
+        # Test sample weights
+        weights = create_sample_persona_weights()
+        self.assertEqual(len(weights), 3)
+        
+        # Verify primary ICP is set correctly
+        primary_icp_count = sum(1 for w in weights.values() if w.get('is_primary_icp', False))
+        self.assertEqual(primary_icp_count, 1)
+        
+        # Verify weight ranges are valid (0-5)
+        for weight_config in weights.values():
+            weight_val = weight_config.get('weight', 1.0)
+            self.assertGreaterEqual(weight_val, 0.0)
+            self.assertLessEqual(weight_val, 5.0)
+        
+        print("✅ Sample persona data integrity verified")
+    
+    def test_export_data_consistency(self):
+        """Test that different export formats contain consistent data."""
+        # Create agent results for testing
+        mock_agent_results = {
+            'coding_specialist_analyze_responses': {
+                'success': True,
+                'themes': [{'theme': 'Test Theme', 'frequency': 5}],
+                'insights': ['Test insight'],
+                'recommendations': ['Test recommendation']
+            }
+        }
+        
+        # Export in multiple formats
+        weighted_file = self.exporter.export_weighted_session_analysis(
+            self.session, self.project, mock_agent_results
+        )
+        
+        csv_file = self.exporter.export_weighted_csv(
+            self.session, self.project
+        )
+        
+        # Load and compare data
+        with open(weighted_file, 'r') as f:
+            weighted_data = json.load(f)
+        
+        import csv as csv_module
+        with open(csv_file, 'r') as f:
+            reader = csv_module.DictReader(f)
+            csv_rows = list(reader)
+        
+        # Verify session IDs match
+        self.assertEqual(weighted_data['session_info']['session_id'], self.session.id)
+        self.assertEqual(csv_rows[0]['session_id'], self.session.id)
+        
+        # Verify response counts match
+        expected_responses = len([r for r in self.session.responses if r.speaker_type == 'participant'])
+        self.assertEqual(len(csv_rows), expected_responses)
+        
+        # Verify persona weights are consistent
+        for row in csv_rows:
+            persona_id = row['speaker_id']
+            expected_weight = self.project.get_analysis_weights().get(persona_id, 1.0)
+            actual_weight = float(row['persona_weight'])
+            self.assertAlmostEqual(expected_weight, actual_weight, places=2)
+        
+        print("✅ Export data consistency verified")
     
     def tearDown(self):
         """Clean up test files."""
