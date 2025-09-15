@@ -697,10 +697,16 @@ def show_persona_overview_table():
     # Export controls
     col1, col2, col3 = st.columns(3)
     with col1:
-        if st.button("Export CSV"):
+        # Use a form to ensure download button renders after generation
+        with st.form("export_csv_form"):
+            gen_csv = st.form_submit_button("Export CSV")
+        if gen_csv:
             csv_bytes = df.to_csv(index=False).encode('utf-8')
-            st.download_button("Download CSV", csv_bytes, file_name="personas.csv", mime="text/csv")
-        if st.button("Export All Profiles (DOCX ZIP)"):
+            st.download_button("Download CSV", csv_bytes, file_name="personas.csv", mime="text/csv", key="dl_personas_csv")
+
+        with st.form("export_docx_zip_form"):
+            gen_docx_zip = st.form_submit_button("Export All Profiles (DOCX ZIP)")
+        if gen_docx_zip:
             try:
                 import io, zipfile
                 personas_all = load_personas()
@@ -711,21 +717,26 @@ def show_persona_overview_table():
                             zf.writestr(f"{p.name.replace(' ','_').lower()}_profile.docx", export_persona_docx(p))
                         except Exception:
                             continue
-                st.download_button("Download Profiles DOCX ZIP", bio.getvalue(), file_name="personas_profiles_docx.zip", mime="application/zip")
+                st.download_button("Download Profiles DOCX ZIP", bio.getvalue(), file_name="personas_profiles_docx.zip", mime="application/zip", key="dl_profiles_docx_zip")
             except Exception as e:
                 st.error(f"ZIP export failed: {e}")
     with col2:
         # Prepare XLSX export (requires openpyxl)
-        if st.button("Export XLSX"):
+        with st.form("export_xlsx_form"):
+            gen_xlsx = st.form_submit_button("Export XLSX")
+        if gen_xlsx:
             try:
                 import io
                 bio = io.BytesIO()
                 with pd.ExcelWriter(bio, engine='openpyxl') as writer:
                     df.to_excel(writer, index=False, sheet_name='Personas')
-                st.download_button("Download XLSX", bio.getvalue(), file_name="personas.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                st.download_button("Download XLSX", bio.getvalue(), file_name="personas.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="dl_personas_xlsx")
             except Exception:
                 st.error("Install openpyxl to export XLSX: pip install openpyxl")
-        if st.button("Export All Profiles (PDF ZIP)"):
+
+        with st.form("export_pdf_zip_form"):
+            gen_pdf_zip = st.form_submit_button("Export All Profiles (PDF ZIP)")
+        if gen_pdf_zip:
             try:
                 import io, zipfile
                 personas_all = load_personas()
@@ -736,11 +747,13 @@ def show_persona_overview_table():
                             zf.writestr(f"{p.name.replace(' ','_').lower()}_profile.pdf", export_persona_pdf(p))
                         except Exception:
                             continue
-                st.download_button("Download Profiles PDF ZIP", bio.getvalue(), file_name="personas_profiles_pdf.zip", mime="application/zip")
+                st.download_button("Download Profiles PDF ZIP", bio.getvalue(), file_name="personas_profiles_pdf.zip", mime="application/zip", key="dl_profiles_pdf_zip")
             except Exception as e:
                 st.error(f"ZIP export failed: {e}")
     with col3:
-        if st.button("Export DOCX"):
+        with st.form("export_docx_table_form"):
+            gen_docx_table = st.form_submit_button("Export DOCX")
+        if gen_docx_table:
             try:
                 import docx, io
                 doc = docx.Document()
@@ -755,7 +768,7 @@ def show_persona_overview_table():
                         cells[i].text = str(row[col])
                 bio = io.BytesIO()
                 doc.save(bio)
-                st.download_button("Download DOCX", bio.getvalue(), file_name="personas.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                st.download_button("Download DOCX", bio.getvalue(), file_name="personas.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", key="dl_personas_docx_table")
             except Exception:
                 st.error("Install python-docx to export DOCX: pip install python-docx")
 

@@ -45,6 +45,8 @@ if 'session_results' not in st.session_state:
     st.session_state.session_results = None
 if 'app' not in st.session_state:
     st.session_state.app = SyntheticFocusGroupApp()
+if 'nav_page' not in st.session_state:
+    st.session_state.nav_page = "Study Creator"
 
 def main():
     """Main application entry point."""
@@ -53,12 +55,14 @@ def main():
     st.markdown("**One-click AI-powered market research studies**")
     
     # Sidebar navigation
-    with st.sidebar:
+with st.sidebar:
         st.header("Navigation")
-        page = st.selectbox(
+        st.selectbox(
             "Choose a page:",
-            ["Study Creator", "Persona Manager", "Templates & Examples", "Run Manager", "Results Viewer", "Live Transcripts", "Export Hub"]
+            ["Study Creator", "Persona Manager", "Templates & Examples", "Run Manager", "Results Viewer", "Live Transcripts", "Export Hub"],
+            key="nav_page"
         )
+        page = st.session_state.get("nav_page", "Study Creator")
         
         st.divider()
         
@@ -445,6 +449,9 @@ Jenny Chen,35,Female,Bachelor's in Communications,"Divorced from Mark (amicable)
                 create_study(study_name, research_topic, description, questions, 
                            participant_count, estimated_duration, num_rounds,
                            weighted_analysis, auto_analysis, custom_personas)
+                # Navigate to Run Manager after successful creation
+                st.session_state.nav_page = "Run Manager"
+                st.rerun()
             else:
                 st.error("Please fill in at least Study Name and Research Topic")
 
@@ -632,6 +639,7 @@ def show_run_manager():
     if 'current_project' not in st.session_state:
         st.warning("No study created yet. Please create a study first.")
         if st.button("Go to Study Creator"):
+            st.session_state.nav_page = "Study Creator"
             st.rerun()
         return
     
