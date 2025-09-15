@@ -331,6 +331,7 @@ Jenny Chen,35,Female,Bachelor's in Communications,"Divorced from Mark (amicable)
                 )
                 if personas_csv:
                     df = pd.read_csv(personas_csv)
+                    st.session_state.pending_uploaded_personas_df = df
                     required_cols = ['name', 'age', 'occupation', 'background']
                     if all(col in df.columns for col in required_cols):
                         custom_personas = df
@@ -356,6 +357,7 @@ Jenny Chen,35,Female,Bachelor's in Communications,"Divorced from Mark (amicable)
                         if isinstance(personas_data, list) and personas_data:
                             # Convert to DataFrame for validation
                             df = pd.DataFrame(personas_data)
+                            st.session_state.pending_uploaded_personas_df = df
                             required_cols = ['name', 'age', 'occupation']
                             if all(col in df.columns for col in required_cols):
                                 custom_personas = df
@@ -427,6 +429,65 @@ Jenny Chen,35,Female,Bachelor's in Communications,"Divorced from Mark (amicable)
                     with colE2:
                         enhance_timeframe = st.text_input("Timeframe", value="last_36_months")
                     st.caption("Requires PERPLEXITY_API_KEY and ANTHROPIC_API_KEY in environment.")
+
+                    # On-demand preview of enhancement before applying
+                    with st.form("enhance_preview_form"):
+                        do_preview = st.form_submit_button("✨ Enhance now (preview)")
+                    if do_preview:
+                        try:
+                            # Determine source personas to preview: use bulk upload DataFrame if available, else uploaded_personas
+                            preview_src: List[Dict] = []
+                            try:
+                                # Try to use the dataframes loaded in bulk upload branches (CSV/JSON)
+                                if 'pending_uploaded_personas_df' in st.session_state and st.session_state.pending_uploaded_personas_df is not None:
+                                    preview_src = convert_uploaded_personas_to_format(st.session_state.pending_uploaded_personas_df)
+                                elif 'uploaded_personas' in st.session_state and st.session_state.uploaded_personas:
+                                    preview_src = st.session_state.uploaded_personas
+                            except Exception:
+                                preview_src = st.session_state.get('uploaded_personas', [])
+                            if not preview_src:
+                                st.warning("Upload personas first (CSV/JSON), then click preview.")
+                            else:
+                                enhanced_preview = enhance_personas_with_research(preview_src, research_topic, enhance_region, enhance_timeframe)
+                                st.session_state.enhance_preview_original = preview_src
+                                st.session_state.enhance_preview_new = enhanced_preview
+                                st.session_state.enhance_preview_ready = True
+                                st.success(f"Preview ready for {len(enhanced_preview)} personas. See comparison below.")
+                        except Exception as e:
+                            st.error(f"Preview failed: {e}")
+
+            # If a preview is ready, show side-by-side diffs and an apply button
+            if st.session_state.get('enhance_preview_ready') and st.session_state.get('enhance_preview_new'):
+                st.subheader("Enhancement Preview (differences only)")
+                try:
+                    import pandas as _pd
+                    originals = st.session_state.get('enhance_preview_original', [])
+                    news = st.session_state.get('enhance_preview_new', [])
+                    for i in range(min(3, len(originals), len(news))):
+                        o, n = originals[i], news[i]
+                        name = o.get('name') or o.get('persona_id') or f"Persona {i+1}"
+                        st.markdown(f"**{name}**")
+                        rows = []
+                        keys = set(list(o.keys()) + list(n.keys()))
+                        for k in sorted(keys):
+                            ov = o.get(k)
+                            nv = n.get(k)
+                            if ov != nv:
+                                # Pretty print short values
+                                def _fmt(v):
+                                    if isinstance(v, list):
+                                        return ", ".join([str(x) for x in v][:8])
+                                    return v
+                                rows.append({'Field': k, 'Original': _fmt(ov), 'Enhanced': _fmt(nv)})
+                        if rows:
+                            st.dataframe(_pd.DataFrame(rows))
+                        else:
+                            st.caption("No changes for this persona.")
+                    if st.button("✅ Apply enhanced personas"):
+                        st.session_state.enhanced_personas = st.session_state.enhance_preview_new
+                        st.success("Enhanced personas applied. They will be used when you create the study.")
+                except Exception as e:
+                    st.caption(f"Preview display note: {e}")
 
             st.subheader("Session Settings")
             if st.checkbox("Build persona from web evidence here"):
@@ -501,13 +562,18 @@ def create_study(name: str, topic: str, description: str, questions: List[str],
             if custom_personas is not None:
                 # Convert uploaded personas to the expected format
                 personas = convert_uploaded_personas_to_format(custom_personas)
-                # Optionally enhance personas via research
-                try:
-                    if 'enhance_uploaded_personas' in locals() and enhance_uploaded_personas and personas:
-                        personas = enhance_personas_with_research(personas, topic, enhance_region, enhance_timeframe)
-                        st.success(f"✨ Enhanced {len(personas)} uploaded personas with research")
-                except Exception as e:
-                    st.warning(f"Enhancement skipped: {e}")
+                # If preview-applied enhanced personas exist, use them directly
+                if st.session_state.get('enhanced_personas'):
+                    personas = st.session_state.enhanced_personas
+                    st.info(f"✨ Using {len(personas)} enhanced personas from preview")
+                else:
+                    # Optionally enhance personas via research
+                    try:
+                        if 'enhance_uploaded_personas' in locals() and enhance_uploaded_personas and personas:
+                            personas = enhance_personas_with_research(personas, topic, enhance_region, enhance_timeframe)
+                            st.success(f"✨ Enhanced {len(personas)} uploaded personas with research")
+                    except Exception as e:
+                        st.warning(f"Enhancement skipped: {e}")
                 st.info(f"🎯 Using {len(personas)} uploaded personas")
             else:
                 # If user added personas via inline web research, prefer those
