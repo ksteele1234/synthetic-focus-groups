@@ -1220,71 +1220,113 @@ def create_b2b_example():
     # Implementation would create example study
 
 def convert_uploaded_personas_to_format(personas_df: pd.DataFrame) -> List[Dict]:
-    """Convert uploaded personas DataFrame to expected format."""
-    personas = []
-    
-    for _, row in personas_df.iterrows():
-        # Create persona ID from name
-        persona_id = row['name'].lower().replace(' ', '_').replace('-', '_')
-        
-        # Handle personality traits (could be string or list)
-        personality_traits = []
-        if 'personality_traits' in row and pd.notna(row['personality_traits']):
-            if isinstance(row['personality_traits'], str):
-                personality_traits = [trait.strip() for trait in row['personality_traits'].split(',')]
-            else:
-                personality_traits = row['personality_traits']
-        
-        # Handle interests similarly
-        interests = []
-        if 'interests' in row and pd.notna(row['interests']):
-            if isinstance(row['interests'], str):
-                interests = [interest.strip() for interest in row['interests'].split(',')]
-            else:
-                interests = row['interests']
-        
+    """Convert uploaded personas DataFrame to expected format.
+    Robust to different column names (e.g., Google Ads audience exports) and missing fields.
+    """
+    import re, json as _json
+
+    # Normalize column names to lowercase with underscores for easier matching
+    df = personas_df.copy()
+    df.columns = [str(c).strip().lower().replace(" ", "_") for c in df.columns]
+
+    def _first(row, keys: List[str], default=None):
+        for k in keys:
+            if k in row and pd.notna(row[k]) and str(row[k]).strip():
+                return row[k]
+        return default
+
+    def _as_list(val) -> List[str]:
+        if isinstance(val, list):
+            return [str(x).strip() for x in val if str(x).strip()]
+        if val is None or (isinstance(val, float) and pd.isna(val)):
+            return []
+        s = str(val).strip()
+        # Try JSON array first
+        if s.startswith("[") and s.endswith("]"):
+            try:
+                parsed = _json.loads(s)
+                if isinstance(parsed, list):
+                    return [str(x).strip() for x in parsed if str(x).strip()]
+            except Exception:
+                pass
+        # Split by comma or semicolon
+        parts = re.split(r"[,;]", s)
+        return [p.strip() for p in parts if p.strip()]
+
+    def _parse_age(val, default=35) -> int:
+        if val is None or (isinstance(val, float) and pd.isna(val)):
+            return default
+        s = str(val)
+        m = re.findall(r"\d+", s)
+        try:
+            if len(m) >= 2:
+                return int((int(m[0]) + int(m[1])) / 2)
+            if len(m) == 1:
+                return int(m[0])
+        except Exception:
+            pass
+        return default
+
+    personas: List[Dict] = []
+    for idx, row in df.iterrows():
+        # Required-ish fields with flexible aliases
+        name = _first(row, [
+            'name','persona','persona_name','audience','audience_name','segment','profile','user_persona'
+        ], default=f"persona_{idx+1}")
+
+        safe_id = str(name).lower().replace(' ', '_').replace('-', '_')
+
+        age = _parse_age(_first(row, ['age','age_range','age_bracket','age_group']))
+        occupation = _first(row, ['occupation','role','job_title','profession','industry'], default='Professional')
+        background = _first(row, ['background','description','summary','bio','notes','about'], default='Professional with experience in their field')
+        gender = _first(row, ['gender','sex'], default='Not specified')
+        location = _first(row, ['location','city','region','country','geo'], default='Not specified')
+
+        personality_traits = _as_list(_first(row, ['personality_traits','traits'])) or ['analytical','detail-oriented']
+        interests = _as_list(_first(row, ['interests','hobbies'])) or ['professional development']
+        core_values = _as_list(_first(row, ['values','core_values']))
+
         persona = {
-            'persona_id': persona_id,
-            'name': row['name'],
-            'role': row.get('occupation', row.get('role', 'Professional')),
-            'age': int(row['age']) if pd.notna(row.get('age', None)) else 35,
-            'occupation': row.get('occupation', 'Professional'),
-            'background': row.get('background', f"Professional with experience in their field"),
-            'gender': row.get('gender', 'Not specified'),
-            'location': row.get('location', 'Not specified'),
-            'personality_traits': personality_traits or ['analytical', 'detail-oriented'],
-            'interests': interests or ['professional development'],
+            'persona_id': safe_id,
+            'name': name,
+            'role': occupation,
+            'age': age,
+            'occupation': occupation,
+            'background': background,
+            'gender': gender,
+            'location': location,
+            'personality_traits': personality_traits,
+            'interests': interests,
             # Extended dimensions (optional)
-            'education': row.get('education', ''),
-            'relationship_family': row.get('relationship_family', ''),
-            'annual_income': row.get('annual_income', ''),
-            'community_involvement': row.get('community_involvement', [] if isinstance(row.get('community_involvement', None), list) else []),
-            'values': row.get('values', [] if isinstance(row.get('values', None), list) else values),
-            'free_time_activities': row.get('free_time_activities', ''),
-            'lifestyle_description': row.get('lifestyle_description', ''),
-            'major_struggles': row.get('major_struggles', [] if isinstance(row.get('major_struggles', None), list) else []),
-            'obstacles': row.get('obstacles', [] if isinstance(row.get('obstacles', None), list) else []),
-            'why_problems_exist': row.get('why_problems_exist', ''),
-            'deep_fears_business': row.get('deep_fears_business', [] if isinstance(row.get('deep_fears_business', None), list) else []),
-            'deep_fears_personal': row.get('deep_fears_personal', [] if isinstance(row.get('deep_fears_personal', None), list) else []),
-            'previous_software_tried': row.get('previous_software_tried', [] if isinstance(row.get('previous_software_tried', None), list) else []),
-            'why_software_failed': row.get('why_software_failed', ''),
-            'tangible_business_results': row.get('tangible_business_results', [] if isinstance(row.get('tangible_business_results', None), list) else []),
-            'tangible_personal_results': row.get('tangible_personal_results', [] if isinstance(row.get('tangible_personal_results', None), list) else []),
-            'emotional_transformations': row.get('emotional_transformations', [] if isinstance(row.get('emotional_transformations', None), list) else []),
-            'if_only_soundbites': row.get('if_only_soundbites', [] if isinstance(row.get('if_only_soundbites', None), list) else []),
-            'desired_reputation': row.get('desired_reputation', [] if isinstance(row.get('desired_reputation', None), list) else []),
-            'success_statements_from_others': row.get('success_statements_from_others', [] if isinstance(row.get('success_statements_from_others', None), list) else []),
-            'things_to_avoid': row.get('things_to_avoid', [] if isinstance(row.get('things_to_avoid', None), list) else []),
-            'unwanted_quotes': row.get('unwanted_quotes', [] if isinstance(row.get('unwanted_quotes', None), list) else []),
-            'big_picture_aspirations': row.get('big_picture_aspirations', ''),
-            'persona_summary': row.get('persona_summary', row.get('background', '')),
-            'ideal_day_scenario': row.get('ideal_day_scenario', ''),
-            'communication_style': row.get('communication_style','Professional and direct')
+            'education': _first(row, ['education','education_level'], default=''),
+            'relationship_family': _first(row, ['relationship_family','marital_status','family','household'], default=''),
+            'annual_income': _first(row, ['annual_income','income','income_level'], default=''),
+            'community_involvement': _as_list(_first(row, ['community_involvement','associations','groups'])),
+            'values': core_values,
+            'free_time_activities': _first(row, ['free_time_activities'], default=''),
+            'lifestyle_description': _first(row, ['lifestyle_description','lifestyle'], default=''),
+            'major_struggles': _as_list(_first(row, ['major_struggles','pains','challenges'])),
+            'obstacles': _as_list(_first(row, ['obstacles','barriers'])),
+            'why_problems_exist': _first(row, ['why_problems_exist','root_cause'], default=''),
+            'deep_fears_business': _as_list(_first(row, ['deep_fears_business','business_fears','fears'])),
+            'deep_fears_personal': _as_list(_first(row, ['deep_fears_personal','personal_fears'])),
+            'previous_software_tried': _as_list(_first(row, ['previous_software_tried','tools_tried','software_tried'])),
+            'why_software_failed': _first(row, ['why_software_failed'], default=''),
+            'tangible_business_results': _as_list(_first(row, ['tangible_business_results','desired_business_outcomes'])),
+            'tangible_personal_results': _as_list(_first(row, ['tangible_personal_results','desired_personal_outcomes'])),
+            'emotional_transformations': _as_list(_first(row, ['emotional_transformations','emotional_outcomes'])),
+            'if_only_soundbites': _as_list(_first(row, ['if_only_soundbites','soundbites'])),
+            'desired_reputation': _as_list(_first(row, ['desired_reputation','how_they_want_to_be_seen'])),
+            'success_statements_from_others': _as_list(_first(row, ['success_statements_from_others','what_others_say'])),
+            'things_to_avoid': _as_list(_first(row, ['things_to_avoid','unwanted_outcomes'])),
+            'unwanted_quotes': _as_list(_first(row, ['unwanted_quotes'])),
+            'big_picture_aspirations': _first(row, ['big_picture_aspirations','aspirations','dreams'], default=''),
+            'persona_summary': _first(row, ['persona_summary','summary','background'], default=background),
+            'ideal_day_scenario': _first(row, ['ideal_day_scenario','day_in_the_life'], default=''),
+            'communication_style': _first(row, ['communication_style'], default='Professional and direct'),
         }
-        
         personas.append(persona)
-    
+
     return personas
 
 def download_export(export_type: str):
