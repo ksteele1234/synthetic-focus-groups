@@ -54,6 +54,13 @@ def main():
     st.title("🎯 Synthetic Focus Groups")
     st.markdown("**One-click AI-powered market research studies**")
     
+    # Handle deferred navigation requests BEFORE the nav widget is created
+    if 'nav_page_request' in st.session_state:
+        try:
+            st.session_state['nav_page'] = st.session_state.pop('nav_page_request')
+        except Exception:
+            st.session_state.pop('nav_page_request', None)
+    
     # Sidebar navigation
     with st.sidebar:
         st.header("Navigation")
@@ -210,6 +217,33 @@ Jenny Chen,35,Female,Bachelor's in Communications,"Divorced from Mark (amicable)
             st.form_submit_button("↻ Update question upload options")
             
             questions = []
+            
+            # Base questions fields (user must provide at least 3 for AI generation)
+            base_q_cols = st.columns(3)
+            with base_q_cols[0]:
+                base_q1 = st.text_input("Base Q1", key="base_q1")
+            with base_q_cols[1]:
+                base_q2 = st.text_input("Base Q2", key="base_q2")
+            with base_q_cols[2]:
+                base_q3 = st.text_input("Base Q3", key="base_q3")
+            ai_q_count = st.slider("Auto-generate additional questions", 0, 10, 0, help="Set >0 to generate via OpenAI. Requires API key or demo mode")
+            if st.button("🤖 Generate Questions with AI"):
+                try:
+                    gen = generate_questions_with_ai(
+                        topic=research_topic,
+                        description=description,
+                        base_questions=[q for q in [base_q1, base_q2, base_q3] if q],
+                        count=ai_q_count
+                    )
+                    st.session_state.generated_questions = gen
+                    st.success(f"Generated {len(gen)} questions")
+                except Exception as e:
+                    st.error(f"AI question generation failed: {e}")
+            # Include generated questions preview
+            if st.session_state.get('generated_questions'):
+                st.write("AI-Generated Questions:")
+                for i, q in enumerate(st.session_state.generated_questions, 1):
+                    st.write(f"{i}. {q}")
             
             if question_input_method == "Manual Entry":
                 for i in range(3):
@@ -659,6 +693,13 @@ def create_study(name: str, topic: str, description: str, questions: List[str],
             except Exception:
                 pass
             
+            # Merge generated questions into the list if set
+            try:
+                if st.session_state.get('generated_questions'):
+                    questions = (questions or []) + st.session_state.generated_questions
+            except Exception:
+                pass
+            
             # Store in session state
             st.session_state.current_project = project
             # Build personas from multiple sources
@@ -768,7 +809,8 @@ def show_run_manager():
     if 'current_project' not in st.session_state:
         st.warning("No study created yet. Please create a study first.")
         if st.button("Go to Study Creator"):
-            st.session_state.nav_page = "Study Creator"
+            # Defer navigation to the next run to avoid Streamlit widget key mutation error
+            st.session_state['nav_page_request'] = "Study Creator"
             st.rerun()
         return
     
@@ -1470,6 +1512,37 @@ def download_export(export_type: str):
     """Handle export downloads."""
     st.success(f"✅ {export_type} downloaded successfully!")
     # In real implementation, generate and trigger file download
+
+
+def generate_questions_with_ai(topic: str, description: str, base_questions: List[str], count: int = 5) -> List[str]:
+    """Use OpenAI (or demo client) to generate additional study questions."""
+    from ai.openai_client import create_openai_client
+    import re
+    client = create_openai_client()
+    sys_prompt = (
+        "You generate unbiased, open-ended focus group questions. "
+        "Avoid leading language and double-barreled phrasing. Output a numbered list."
+    )
+    user_prompt = (
+        f"Project topic: {topic}\nDescription: {description}\n"
+        f"Base questions (user-provided):\n" + "\n".join([f"- {q}" for q in base_questions[:10]]) +
+        f"\n\nGenerate {count} additional questions that complement the base questions."
+    )
+    resp = client.chat_completion([
+        {"role":"system","content":sys_prompt},
+        {"role":"user","content":user_prompt}
+    ], temperature=0.4, max_tokens=400)
+    text = resp.choices[0].message.content
+    # Extract lines as questions
+    questions: List[str] = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        line = re.sub(r'^\d+\.?\s*', '', line)
+        if len(line) > 5:
+            questions.append(line)
+    return questions[:max(0, count)]
 
 
 def enhance_personas_with_research(personas: List[Dict], topic: str, region: str, timeframe: str) -> List[Dict]:

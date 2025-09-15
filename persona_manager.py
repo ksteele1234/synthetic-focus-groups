@@ -506,7 +506,25 @@ def persist_citations(quotes: List[Dict[str, Any]]):
 
 
 def show_web_research_builder():
-    """Build personas from web evidence (Reddit/Quora) + human coordinator sources."""
+    """Build personas from web evidence (Reddit/Quora) + human coordinator sources.
+
+    What this does:
+    - Gathers quotes and snippets from Reddit (and optional Quora/API) for your topic
+    - Lets you attach coordinator sources (URLs, PDFs, DOCX, CSV, XLSX)
+    - Synthesizes a persona from combined evidence, preserving quotes for traceability
+
+    When to use:
+    - You want an evidence-backed persona quickly
+    - You have supplemental documents or URLs you’d like included
+
+    Field guide:
+    - Evidence Query: Plain-language topic, pain point, or audience (e.g., "accounting firm online marketing")
+    - Subreddits: Comma-separated communities to search (e.g., smallbusiness, accounting)
+    - Minimum upvotes: Filters for higher-signal posts
+    - Quote limit: Max number of quotes to pull
+    - Include Quora stub: Adds provider API stub when Reddit has no results
+    - Coordinator Sources: Upload URLs/documents; we’ll extract text and include it as evidence
+    """
     import sys, os, io
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
     from research.web_persona_builder import WebPersonaBuilder
@@ -676,7 +694,7 @@ def extract_file_text(uploaded_file) -> str:
         raise Exception("Unsupported file type")
 
 def show_persona_overview_table():
-    """Show a sortable table of all personas: Name, profession, age, project."""
+    """Show a sortable, filterable table of personas with column controls."""
     # Load personas from storage/session
     personas = load_personas()
     if not personas:
@@ -692,7 +710,28 @@ def show_persona_overview_table():
         })
     df = pd.DataFrame(data)
     st.subheader("All Personas")
-    st.dataframe(df.sort_values(by=['Name']), use_container_width=True)
+
+    # Filters
+    f1, f2, f3 = st.columns(3)
+    with f1:
+        name_filter = st.text_input("Filter by name contains")
+    with f2:
+        role_filter = st.text_input("Filter by profession contains")
+    with f3:
+        min_age = st.number_input("Min age", 0, 120, 0)
+    if name_filter:
+        df = df[df['Name'].str.contains(name_filter, case=False, na=False)]
+    if role_filter:
+        df = df[df['Profession'].str.contains(role_filter, case=False, na=False)]
+    if min_age:
+        df = df[df['Age'] >= min_age]
+
+    # Column selector
+    all_cols = list(df.columns)
+    visible_cols = st.multiselect("Columns to show", options=all_cols, default=all_cols)
+    df_show = df[visible_cols] if visible_cols else df
+
+    st.dataframe(df_show.sort_values(by=[visible_cols[0]] if visible_cols else ['Name']), use_container_width=True)
     
     # Export controls
     col1, col2, col3 = st.columns(3)
