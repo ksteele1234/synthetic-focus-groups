@@ -384,34 +384,34 @@ Jenny Chen,35,Female,Bachelor's in Communications,"Divorced from Mark (amicable)
                 )
                 include_uploaded_personas = st.checkbox("Include uploaded participants", value=True)
                 if st.form_submit_button("👥 Add Participant Files"):
-                added = 0
-                for f in p_files or []:
-                    name = f.name.lower()
-                    try:
-                        if name.endswith('.json'):
-                            data = json.loads(f.read().decode('utf-8'))
-                            if isinstance(data, dict):
-                                data = [data]
-                            df = pd.DataFrame(data)
-                        elif name.endswith('.csv'):
-                            df = pd.read_csv(f)
-                        elif name.endswith('.xlsx'):
-                            try:
-                                df = pd.read_excel(f)
-                            except Exception:
-                                st.error("Reading Excel requires openpyxl. Install with: pip install openpyxl")
+                    added = 0
+                    for f in p_files or []:
+                        name = f.name.lower()
+                        try:
+                            if name.endswith('.json'):
+                                data = json.loads(f.read().decode('utf-8'))
+                                if isinstance(data, dict):
+                                    data = [data]
+                                df = pd.DataFrame(data)
+                            elif name.endswith('.csv'):
+                                df = pd.read_csv(f)
+                            elif name.endswith('.xlsx'):
+                                try:
+                                    df = pd.read_excel(f)
+                                except Exception:
+                                    st.error("Reading Excel requires openpyxl. Install with: pip install openpyxl")
+                                    continue
+                            else:
                                 continue
-                        else:
-                            continue
-                        parsed = convert_uploaded_personas_to_format(df)
-                        st.session_state.uploaded_personas.extend(parsed)
-                        added += len(parsed)
-                    except Exception as e:
-                        st.error(f"Failed to parse {f.name}: {e}")
-                if added:
-                    st.success(f"Added {added} participants from files")
-                else:
-                    st.info("No participants added")
+                            parsed = convert_uploaded_personas_to_format(df)
+                            st.session_state.uploaded_personas.extend(parsed)
+                            added += len(parsed)
+                        except Exception as e:
+                            st.error(f"Failed to parse {f.name}: {e}")
+                    if added:
+                        st.success(f"Added {added} participants from files")
+                    else:
+                        st.info("No participants added")
             if st.session_state.uploaded_personas:
                 st.caption(f"Uploaded participants ready: {len(st.session_state.uploaded_personas)} (will be included: {include_uploaded_personas})")
             
