@@ -263,40 +263,40 @@ Jenny Chen,35,Female,Bachelor's in Communications,"Divorced from Mark (amicable)
                 if st.form_submit_button("➕ Add Question Files"):
                     added = 0
                     for f in q_files or []:
-                    name = f.name.lower()
-                    try:
-                        if name.endswith('.txt'):
-                            content = f.read().decode('utf-8')
-                            new_qs = [line.strip() for line in content.split('\n') if line.strip()]
-                        elif name.endswith('.csv'):
-                            df = pd.read_csv(f)
-                            if 'question' in df.columns:
-                                new_qs = df['question'].dropna().astype(str).tolist()
+                        name = f.name.lower()
+                        try:
+                            if name.endswith('.txt'):
+                                content = f.read().decode('utf-8')
+                                new_qs = [line.strip() for line in content.split('\n') if line.strip()]
+                            elif name.endswith('.csv'):
+                                df = pd.read_csv(f)
+                                if 'question' in df.columns:
+                                    new_qs = df['question'].dropna().astype(str).tolist()
+                                else:
+                                    # take first non-empty column
+                                    first_col = df.columns[0]
+                                    new_qs = df[first_col].dropna().astype(str).tolist()
+                            elif name.endswith('.xlsx'):
+                                try:
+                                    df = pd.read_excel(f)
+                                except Exception as ex:
+                                    st.error("Reading Excel requires openpyxl. Install with: pip install openpyxl")
+                                    continue
+                                if 'question' in df.columns:
+                                    new_qs = df['question'].dropna().astype(str).tolist()
+                                else:
+                                    first_col = df.columns[0]
+                                    new_qs = df[first_col].dropna().astype(str).tolist()
                             else:
-                                # take first non-empty column
-                                first_col = df.columns[0]
-                                new_qs = df[first_col].dropna().astype(str).tolist()
-                        elif name.endswith('.xlsx'):
-                            try:
-                                df = pd.read_excel(f)
-                            except Exception as ex:
-                                st.error("Reading Excel requires openpyxl. Install with: pip install openpyxl")
-                                continue
-                            if 'question' in df.columns:
-                                new_qs = df['question'].dropna().astype(str).tolist()
-                            else:
-                                first_col = df.columns[0]
-                                new_qs = df[first_col].dropna().astype(str).tolist()
-                        else:
-                            new_qs = []
-                        st.session_state.uploaded_questions.extend(new_qs)
-                        added += len(new_qs)
-                    except Exception as e:
-                        st.error(f"Failed to parse {f.name}: {e}")
-                if added:
-                    st.success(f"Added {added} questions from files")
-                else:
-                    st.info("No questions added")
+                                new_qs = []
+                            st.session_state.uploaded_questions.extend(new_qs)
+                            added += len(new_qs)
+                        except Exception as e:
+                            st.error(f"Failed to parse {f.name}: {e}")
+                    if added:
+                        st.success(f"Added {added} questions from files")
+                    else:
+                        st.info("No questions added")
             if st.session_state.uploaded_questions:
                 st.caption(f"Uploaded questions: {len(st.session_state.uploaded_questions)} (will be included: {include_uploaded_q})")
             
