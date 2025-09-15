@@ -249,16 +249,18 @@ Jenny Chen,35,Female,Bachelor's in Communications,"Divorced from Mark (amicable)
                     else:
                         st.error("CSV must have a 'question' column")
             
-            # New: Multi-file upload with Excel support and dedicated action
-            st.markdown("**Question Files (CSV, TXT, XLSX)**")
-            q_files = st.file_uploader(
-                "Upload question files",
-                type=["csv", "txt", "xlsx"],
-                accept_multiple_files=True,
-                key="questions_multi_upload"
-            )
-            include_uploaded_q = st.checkbox("Include uploaded question files", value=True)
-            if st.form_submit_button("➕ Add Question Files"):
+            # Show multi-file upload only for bulk upload methods
+            if question_input_method != "Manual Entry":
+                # New: Multi-file upload with Excel support and dedicated action
+                st.markdown("**Question Files (CSV, TXT, XLSX)**")
+                q_files = st.file_uploader(
+                    "Upload question files",
+                    type=["csv", "txt", "xlsx"],
+                    accept_multiple_files=True,
+                    key="questions_multi_upload"
+                )
+                include_uploaded_q = st.checkbox("Include uploaded question files", value=True)
+                if st.form_submit_button("➕ Add Question Files"):
                 added = 0
                 for f in q_files or []:
                     name = f.name.lower()
@@ -368,16 +370,18 @@ Jenny Chen,35,Female,Bachelor's in Communications,"Divorced from Mark (amicable)
                     except json.JSONDecodeError:
                         st.error("Invalid JSON format")
             
-            # New: dedicated upload for participant information (CSV/JSON/XLSX)
-            st.markdown("**Upload Participant Information (CSV, JSON, XLSX)**")
-            p_files = st.file_uploader(
-                "Upload participant files",
-                type=["csv", "json", "xlsx"],
-                accept_multiple_files=True,
-                key="participants_multi_upload"
-            )
-            include_uploaded_personas = st.checkbox("Include uploaded participants", value=True)
-            if st.form_submit_button("👥 Add Participant Files"):
+            # Show participant files area only when using bulk upload personas
+            if persona_source != "Auto-Generate":
+                # New: dedicated upload for participant information (CSV/JSON/XLSX)
+                st.markdown("**Upload Participant Information (CSV, JSON, XLSX)**")
+                p_files = st.file_uploader(
+                    "Upload participant files",
+                    type=["csv", "json", "xlsx"],
+                    accept_multiple_files=True,
+                    key="participants_multi_upload"
+                )
+                include_uploaded_personas = st.checkbox("Include uploaded participants", value=True)
+                if st.form_submit_button("👥 Add Participant Files"):
                 added = 0
                 for f in p_files or []:
                     name = f.name.lower()
@@ -409,6 +413,20 @@ Jenny Chen,35,Female,Bachelor's in Communications,"Divorced from Mark (amicable)
             if st.session_state.uploaded_personas:
                 st.caption(f"Uploaded participants ready: {len(st.session_state.uploaded_personas)} (will be included: {include_uploaded_personas})")
             
+            # Enhancement options for uploaded personas
+            enhance_uploaded_personas = False
+            enhance_region = "US"
+            enhance_timeframe = "last_36_months"
+            if persona_source != "Auto-Generate":
+                with st.expander("✨ Enhance uploaded personas with research (optional)"):
+                    enhance_uploaded_personas = st.checkbox("Enhance uploaded personas with Perplexity + Claude", value=False)
+                    colE1, colE2 = st.columns(2)
+                    with colE1:
+                        enhance_region = st.text_input("Region (for research)", value="US")
+                    with colE2:
+                        enhance_timeframe = st.text_input("Timeframe", value="last_36_months")
+                    st.caption("Requires PERPLEXITY_API_KEY and ANTHROPIC_API_KEY in environment.")
+
             st.subheader("Session Settings")
             if st.checkbox("Build persona from web evidence here"):
                 from research.web_persona_builder import WebPersonaBuilder
@@ -482,6 +500,13 @@ def create_study(name: str, topic: str, description: str, questions: List[str],
             if custom_personas is not None:
                 # Convert uploaded personas to the expected format
                 personas = convert_uploaded_personas_to_format(custom_personas)
+                # Optionally enhance personas via research
+                try:
+                    if 'enhance_uploaded_personas' in locals() and enhance_uploaded_personas and personas:
+                        personas = enhance_personas_with_research(personas, topic, enhance_region, enhance_timeframe)
+                        st.success(f"✨ Enhanced {len(personas)} uploaded personas with research")
+                except Exception as e:
+                    st.warning(f"Enhancement skipped: {e}")
                 st.info(f"🎯 Using {len(personas)} uploaded personas")
             else:
                 # If user added personas via inline web research, prefer those
@@ -1341,6 +1366,56 @@ def download_export(export_type: str):
     """Handle export downloads."""
     st.success(f"✅ {export_type} downloaded successfully!")
     # In real implementation, generate and trigger file download
+
+
+def enhance_personas_with_research(personas: List[Dict], topic: str, region: str, timeframe: str) -> List[Dict]:
+    """Enhance uploaded personas using Perplexity (dossier) + Claude (fill missing fields only)."""
+    try:
+        from ai.perplexity_client import PerplexityClient
+        from ai.claude_client import ClaudeClient
+        from ai.persona_agents import ResearchAgent
+    except Exception as e:
+        raise RuntimeError(f"Required AI clients unavailable: {e}")
+
+    pplx = PerplexityClient()
+    claude = ClaudeClient()
+    researcher = ResearchAgent(pplx)
+
+    dossier_res = researcher.process({
+        'task_type': 'build_dossier',
+        'topic': topic,
+        'region': region,
+        'timeframe': timeframe,
+        'include_social': True
+    })
+    dossier = dossier_res.get('dossier', {})
+
+    enhanced: List[Dict] = []
+    import json as _json
+    for p in personas:
+        # Only fill missing/empty fields
+        system = (
+            "You enhance a persona JSON by filling ONLY missing or empty fields using the provided ResearchDossier. "
+            "Do not change non-empty fields. JSON only."
+        )
+        user = (
+            "ResearchDossier:\n" + _json.dumps(dossier, ensure_ascii=False) +
+            "\n\nPersona (fill blanks only):\n" + _json.dumps(p, ensure_ascii=False)
+        )
+        try:
+            updated = claude.json_only(system, user, temperature=0.2, max_tokens=2000)
+            if isinstance(updated, dict):
+                # keep stable IDs
+                updated['persona_id'] = p.get('persona_id', updated.get('persona_id'))
+                # attach citations if available
+                if dossier.get('citations'):
+                    updated.setdefault('evidence_citations', dossier.get('citations')[:10])
+                enhanced.append(updated)
+            else:
+                enhanced.append(p)
+        except Exception:
+            enhanced.append(p)
+    return enhanced
 
 if __name__ == "__main__":
     main()
