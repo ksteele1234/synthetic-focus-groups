@@ -430,29 +430,50 @@ Jenny Chen,35,Female,Bachelor's in Communications,"Divorced from Mark (amicable)
                         enhance_timeframe = st.text_input("Timeframe", value="last_36_months")
                     st.caption("Requires PERPLEXITY_API_KEY and ANTHROPIC_API_KEY in environment.")
 
+                    # Build base list once for selection UI
+                    base_all: List[Dict] = []
+                    try:
+                        if 'pending_uploaded_personas_df' in st.session_state and st.session_state.pending_uploaded_personas_df is not None:
+                            base_all = convert_uploaded_personas_to_format(st.session_state.pending_uploaded_personas_df)
+                        elif 'uploaded_personas' in st.session_state and st.session_state.uploaded_personas:
+                            base_all = st.session_state.uploaded_personas
+                    except Exception:
+                        base_all = st.session_state.get('uploaded_personas', [])
+
+                    if base_all:
+                        # Build selection options
+                        options = []
+                        keys = []
+                        for idx, p in enumerate(base_all):
+                            label = p.get('name') or p.get('persona_id') or f"Persona {idx+1}"
+                            options.append(f"{idx+1}. {label}")
+                            keys.append({'idx': idx, 'key': p.get('persona_id') or p.get('name') or str(idx)})
+                        default_sel = options[:min(5, len(options))]
+                        selection = st.multiselect("Select personas to preview", options=options, default=default_sel)
+                        # Map back to indices
+                        selected_indices = [int(s.split('. ',1)[0]) - 1 for s in selection]
+                        st.session_state.preview_selection_indices = selected_indices
+                        st.session_state.enhance_preview_base_all = base_all
+
                     # On-demand preview of enhancement before applying
                     with st.form("enhance_preview_form"):
                         do_preview = st.form_submit_button("✨ Enhance now (preview)")
                     if do_preview:
                         try:
-                            # Determine source personas to preview: use bulk upload DataFrame if available, else uploaded_personas
-                            preview_src: List[Dict] = []
-                            try:
-                                # Try to use the dataframes loaded in bulk upload branches (CSV/JSON)
-                                if 'pending_uploaded_personas_df' in st.session_state and st.session_state.pending_uploaded_personas_df is not None:
-                                    preview_src = convert_uploaded_personas_to_format(st.session_state.pending_uploaded_personas_df)
-                                elif 'uploaded_personas' in st.session_state and st.session_state.uploaded_personas:
-                                    preview_src = st.session_state.uploaded_personas
-                            except Exception:
-                                preview_src = st.session_state.get('uploaded_personas', [])
-                            if not preview_src:
+                            if not base_all:
                                 st.warning("Upload personas first (CSV/JSON), then click preview.")
                             else:
-                                enhanced_preview = enhance_personas_with_research(preview_src, research_topic, enhance_region, enhance_timeframe)
-                                st.session_state.enhance_preview_original = preview_src
-                                st.session_state.enhance_preview_new = enhanced_preview
-                                st.session_state.enhance_preview_ready = True
-                                st.success(f"Preview ready for {len(enhanced_preview)} personas. See comparison below.")
+                                sel = st.session_state.get('preview_selection_indices') or list(range(min(5, len(base_all))))
+                                subset = [base_all[i] for i in sel if 0 <= i < len(base_all)]
+                                if not subset:
+                                    st.warning("Select at least one persona to preview.")
+                                else:
+                                    enhanced_subset = enhance_personas_with_research(subset, research_topic, enhance_region, enhance_timeframe)
+                                    st.session_state.enhance_preview_original = subset
+                                    st.session_state.enhance_preview_new = enhanced_subset
+                                    st.session_state.enhance_preview_selected_indices = sel
+                                    st.session_state.enhance_preview_ready = True
+                                    st.success(f"Preview ready for {len(enhanced_subset)} personas. See comparison below.")
                         except Exception as e:
                             st.error(f"Preview failed: {e}")
 
@@ -463,7 +484,7 @@ Jenny Chen,35,Female,Bachelor's in Communications,"Divorced from Mark (amicable)
                     import pandas as _pd
                     originals = st.session_state.get('enhance_preview_original', [])
                     news = st.session_state.get('enhance_preview_new', [])
-                    for i in range(min(3, len(originals), len(news))):
+                    for i in range(min(len(originals), len(news))):
                         o, n = originals[i], news[i]
                         name = o.get('name') or o.get('persona_id') or f"Persona {i+1}"
                         st.markdown(f"**{name}**")
@@ -484,7 +505,20 @@ Jenny Chen,35,Female,Bachelor's in Communications,"Divorced from Mark (amicable)
                         else:
                             st.caption("No changes for this persona.")
                     if st.button("✅ Apply enhanced personas"):
-                        st.session_state.enhanced_personas = st.session_state.enhance_preview_new
+                        # Merge enhanced subset back into full base list
+                        base_all = st.session_state.get('enhance_preview_base_all', [])
+                        sel = st.session_state.get('enhance_preview_selected_indices', [])
+                        enhanced_subset = st.session_state.get('enhance_preview_new', [])
+                        merged: List[Dict] = []
+                        enhance_map = {}
+                        # Map by persona_id or name for robustness
+                        for i, ep in zip(sel, enhanced_subset):
+                            k = ep.get('persona_id') or ep.get('name') or str(i)
+                            enhance_map[k] = ep
+                        for i, p in enumerate(base_all):
+                            key = p.get('persona_id') or p.get('name') or str(i)
+                            merged.append(enhance_map.get(key, p))
+                        st.session_state.enhanced_personas = merged
                         st.success("Enhanced personas applied. They will be used when you create the study.")
                 except Exception as e:
                     st.caption(f"Preview display note: {e}")
