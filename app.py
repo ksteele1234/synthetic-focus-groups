@@ -55,10 +55,11 @@ def main():
     st.markdown("**One-click AI-powered market research studies**")
     
     # Sidebar navigation
-with st.sidebar:
+    with st.sidebar:
         st.header("Navigation")
         st.selectbox(
-            "Choose a page:",
+            "Choose a page:
+",
             ["Study Creator", "Persona Manager", "Templates & Examples", "Run Manager", "Results Viewer", "Live Transcripts", "Export Hub"],
             key="nav_page"
         )
