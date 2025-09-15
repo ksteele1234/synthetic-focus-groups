@@ -1,0 +1,24 @@
+{
+  "$id": "https://example.com/schemas/messages.schema.json",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["study_id", "turn", "role", "content", "ts"],
+    "properties": {
+      "study_id": { "type": "string" },
+      "turn": { "type": "integer" },
+      "persona_name": { "type": ["string", "null"] },
+      "role": { "type": "string" },
+      "content": { "type": "string" },
+      "tokens": { "type": ["integer", "null"] },
+      "cost": { "type": ["number", "null"] },
+      "topics": {
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "sentiment": { "type": ["string", "null"] },
+      "ts": { "type": "string", "format": "date-time" }
+    }
+  }
+}
+
