@@ -715,11 +715,7 @@ def show_persona_overview_table():
             except Exception as e:
                 st.error(f"ZIP export failed: {e}")
     with col2:
-        try:
-            import pandas as pd
-            xls_bytes = df.to_excel(index=False, engine='openpyxl') if False else None
-        except Exception:
-            xls_bytes = None
+        # Prepare XLSX export (requires openpyxl)
         if st.button("Export XLSX"):
             try:
                 import io
