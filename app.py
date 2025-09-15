@@ -261,8 +261,8 @@ Jenny Chen,35,Female,Bachelor's in Communications,"Divorced from Mark (amicable)
                 )
                 include_uploaded_q = st.checkbox("Include uploaded question files", value=True)
                 if st.form_submit_button("➕ Add Question Files"):
-                added = 0
-                for f in q_files or []:
+                    added = 0
+                    for f in q_files or []:
                     name = f.name.lower()
                     try:
                         if name.endswith('.txt'):
