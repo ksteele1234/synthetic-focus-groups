@@ -227,7 +227,7 @@ Jenny Chen,35,Female,Bachelor's in Communications,"Divorced from Mark (amicable)
             with base_q_cols[2]:
                 base_q3 = st.text_input("Base Q3", key="base_q3")
             ai_q_count = st.slider("Auto-generate additional questions", 0, 10, 0, help="Set >0 to generate via OpenAI. Requires API key or demo mode")
-            if st.button("🤖 Generate Questions with AI"):
+            if st.form_submit_button("🤖 Generate Questions with AI"):
                 try:
                     gen = generate_questions_with_ai(
                         topic=research_topic,
@@ -493,8 +493,7 @@ Jenny Chen,35,Female,Bachelor's in Communications,"Divorced from Mark (amicable)
                         st.session_state.enhance_preview_base_all = base_all
 
                     # On-demand preview of enhancement before applying
-                    with st.form("enhance_preview_form"):
-                        do_preview = st.form_submit_button("✨ Enhance now (preview)")
+                    do_preview = st.form_submit_button("✨ Enhance now (preview)")
                     if do_preview:
                         try:
                             if not base_all:
