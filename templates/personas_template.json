@@ -2,37 +2,78 @@
   {
     "name": "Sarah Johnson",
     "age": 32,
-    "occupation": "Small Business Owner",
-    "background": "Runs a digital marketing agency with 8 employees. Experienced in client management and team leadership.",
     "gender": "Female",
+    "education": "MBA in Marketing",
+    "relationship_family": "Married to David (software engineer), 2 kids - Emma (8) and Jake (5)",
+    "occupation": "Digital Marketing Agency Owner",
+    "annual_income": "$85,000 (goal: $150,000)",
     "location": "Austin, TX",
-    "personality_traits": ["entrepreneurial", "detail-oriented", "strategic"],
-    "interests": ["business growth", "technology", "team management"],
-    "pain_points": ["Time management", "Scaling operations", "Client retention"],
-    "goals": ["Growing revenue by 40%", "Expanding team", "Improving client satisfaction"]
-  },
-  {
-    "name": "Mike Rodriguez",
-    "age": 28,
-    "occupation": "Marketing Manager",
-    "background": "Works at a mid-size tech company managing social media campaigns and content strategy.",
-    "gender": "Male",
-    "location": "San Francisco, CA",
-    "personality_traits": ["analytical", "creative", "data-driven"],
-    "interests": ["digital marketing", "analytics", "social media trends"],
-    "pain_points": ["ROI measurement", "Content creation speed", "Platform algorithm changes"],
-    "goals": ["Increase engagement by 25%", "Streamline content workflow", "Master new platforms"]
-  },
-  {
-    "name": "Jennifer Chen",
-    "age": 35,
-    "occupation": "Freelance Consultant",
-    "background": "Independent consultant specializing in business process optimization for startups.",
-    "gender": "Female",
-    "location": "Seattle, WA",
-    "personality_traits": ["independent", "organized", "problem-solver"],
-    "interests": ["productivity tools", "automation", "startup ecosystem"],
-    "pain_points": ["Client acquisition", "Project management", "Work-life balance"],
-    "goals": ["Increase hourly rate", "Standardize processes", "Build passive income"]
+
+    "hobbies": ["Yoga at sunrise", "Reading marketing blogs", "Networking events"],
+    "community_involvement": ["AMA Austin", "Local PTA"],
+    "personality_traits": ["Analytical", "Perfectionist", "Cost-conscious", "Quality-focused"],
+    "values": ["Family", "Efficiency", "Reliability"],
+    "free_time_activities": "Morning yoga, weekend hikes with family",
+    "lifestyle_description": "Busy agency owner balancing client work, team leadership, and family life",
+
+    "major_struggles": [
+      "Limited marketing budget stretching across multiple client needs",
+      "Time management between client work and business development",
+      "Client acquisition consistency - feast or famine cycles"
+    ],
+    "obstacles": ["Fragmented toolset", "Slow reporting cycle", "Hiring bottlenecks"],
+    "why_problems_exist": "Overlapping tools, non-integrated data flows, and limited operational slack",
+
+    "deep_fears_business": [
+      "Business failure leading to financial instability",
+      "Losing major clients and not being able to pay employees",
+      "Cash flow crisis affecting family security"
+    ],
+    "deep_fears_personal": ["Letting family down", "Burnout"],
+    "fear_impact_spouse": "Increased stress and less quality time",
+    "fear_impact_kids": "Missing important milestones",
+    "fear_impact_employees": "Layoffs and morale damage",
+    "fear_impact_peers": "Seen as ineffective leader",
+    "fear_impact_clients": "Perceived as unreliable",
+    "potential_remarks_from_others": ["Why isn't your reporting automated by now?"] ,
+
+    "previous_agencies_tried": ["Boutique SEO Firm"],
+    "previous_software_tried": ["HubSpot", "Mailchimp", "Canva Pro", "Hootsuite"],
+    "diy_approaches_tried": ["Manual lead tracking", "Spreadsheet dashboards"],
+    "why_agencies_failed": "High cost with unclear ROI",
+    "why_software_failed": "Tools too complex, poor integrations",
+    "why_diy_failed": "Too time-consuming and error-prone",
+
+    "tangible_business_results": [
+      "30% revenue growth within 12 months",
+      "Streamlined client onboarding reducing setup time by 50%",
+      "Automated reporting saving 10 hours per week"
+    ],
+    "tangible_personal_results": ["More family evenings", "Less weekend work"],
+    "emotional_transformations": ["Confidence", "Calm"],
+    "if_only_soundbites": [
+      "If only I could automate my marketing processes... it would mean I could focus on strategy and family instead of daily tasks"
+    ],
+
+    "professional_recognition_goals": ["Agency of the Year (regional)"],
+    "financial_freedom_goals": ["$150k+ personal income"],
+    "lifestyle_upgrade_goals": ["More travel"],
+    "family_legacy_goals": ["College funds for kids"],
+    "big_picture_aspirations": "Build a marketing agency that runs smoothly without micromanagement",
+
+    "desired_reputation": ["Reliable", "Strategic"],
+    "success_statements_from_others": ["She runs a tight, client-first ship"],
+
+    "things_to_avoid": [
+      "Wasting money on tools that don't integrate or deliver ROI",
+      "Overwhelming complexity that requires extensive training",
+      "Time-consuming setup processes that delay results"
+    ],
+    "unwanted_quotes": ["It's just busywork"],
+
+    "persona_summary": "Sarah Johnson is a 32-year-old agency owner from Austin who needs integrated tooling and predictable acquisition to balance growth with family.",
+    "ideal_day_scenario": "Morning yoga, focused client strategy blocks, automated reporting, family dinner",
+
+    "communication_style": "Direct and outcomes-focused"
   }
 ]
